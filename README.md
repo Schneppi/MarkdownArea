@@ -309,3 +309,7 @@ The usual `DesktopCanvas` events (`Opening`, `Closing`, `KeyDown`, mouse events,
 ## Author
 
 Sascha Schneppmueller
+
+## License
+
+MarkdownArea is released under the [MIT No Attribution License (MIT-0)](LICENSE). You can use, change and distribute it freely in any project, commercial or not, without mentioning this project or its author.
