@@ -751,6 +751,46 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
+		Private Sub AlignRows(g As Graphics, lineIndex As Integer, maxWidth As Double)
+		  // TextAlignment: moves each row of a laid-out line to the center or the right edge.
+		  // The spaces a row ends with (where it wrapped) don't count, so the visible text lines up.
+		  If mTextAlignment <> TextAlignments.Center And mTextAlignment <> TextAlignments.Right Then Return
+		  Var line As String = mLines(lineIndex)
+
+		  For r As Integer = mLineFirstRow(lineIndex) To mLineLastRow(lineIndex)
+		    Var row As MDRow = mRows(r)
+		    Var right As Double = row.StartX
+		    For f As Integer = row.FirstFragment To row.LastFragment
+		      Var frag As MDFragment = mFragments(f)
+		      If (frag.Flags And kFlagHidden) <> 0 Then Continue
+		      right = frag.X + frag.Width
+		      // Leave out trailing spaces of a text fragment
+		      If (frag.Flags And kSymbolFlags) = 0 And frag.EndCol > frag.StartCol Then
+		        Var piece As String = line.Middle(frag.StartCol, frag.EndCol - frag.StartCol)
+		        Var trimmed As String = piece.TrimRight
+		        If trimmed.Length < piece.Length Then
+		          ApplyFont(g, frag.Flags, frag.Scale)
+		          right = frag.X + g.TextWidth(trimmed)
+		        End If
+		      End If
+		    Next
+
+		    Var shift As Double = maxWidth - right
+		    If mTextAlignment = TextAlignments.Center Then shift = shift / 2
+		    If shift <= 0 Then Continue
+
+		    row.StartX = row.StartX + shift
+		    mRows(r) = row
+		    For f As Integer = row.FirstFragment To row.LastFragment
+		      Var frag As MDFragment = mFragments(f)
+		      frag.X = frag.X + shift
+		      mFragments(f) = frag
+		    Next
+		  Next
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
 		Private Sub ApplyCodeBlock()
 		  // Fences the selected lines, or inserts an empty code block
 		  If mReadOnly Then Return
@@ -1930,6 +1970,7 @@ Inherits DesktopCanvas
 		      y = LayoutCollapsedLine(i, y)
 		    Else
 		      y = LayoutLine(g, i, flags, scale, indent, contentCol, maxWidth, y)
+		      If kind <> kKindCode And kind <> kKindFence And kind <> kKindRule Then AlignRows(g, i, maxWidth)
 		    End If
 		    mLineBottom(i) = y
 		  Next
@@ -4258,6 +4299,10 @@ Inherits DesktopCanvas
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
+		Private mTextAlignment As TextAlignments
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
 		Private mMouseHandledByApp As Boolean
 	#tag EndProperty
 
@@ -4741,9 +4786,22 @@ Inherits DesktopCanvas
 		Text As String
 	#tag EndComputedProperty
 
-	#tag Property, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E
+	#tag ComputedProperty, Flags = &h0, Description = 416C69676E73207468652074657874206C6566742C2063656E7465726564206F722072696768742E20436F646520626C6F636B7320616E64207461626C6573206B656570207468656972206F776E20616C69676E6D656E742E
+		#tag Getter
+			Get
+			  Return mTextAlignment
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  If value = mTextAlignment Then Return
+			  mTextAlignment = value
+			  mLayoutDirty = True
+			  Refresh(False)
+			End Set
+		#tag EndSetter
 		TextAlignment As TextAlignments
-	#tag EndProperty
+	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0
 		#tag Getter

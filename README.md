@@ -169,6 +169,7 @@ End Function
 | `Text` | String | The same raw text. Setting a non-empty string shows it as plain text |
 | `RenderMarkdown` | Boolean | `True` shows the text rendered, `False` (the default) as plain text. The toolbar toggle switches it too |
 | `ReadOnly` | Boolean | Prevents editing; selection and copying still work. Replaces the toolbar with a small view button in the top right corner, shown while the mouse is over the editor |
+| `TextAlignment` | TextAlignments | Aligns the text left, centered or right, in both views. Code blocks, tables and images keep their own alignment |
 | `HasToolbar` | Boolean | Shows the formatting toolbar when the mouse comes near the top edge, or the view toggle while `ReadOnly` is `True` |
 | `ToolbarRevealDistance` | Integer | Distance in points from the top edge within which the toolbar appears |
 | `BaseFolder` | FolderItem | Folder that relative image and link paths are resolved against |
@@ -198,7 +199,7 @@ So you can change an existing `DesktopTextArea`'s Super to `MarkdownArea` withou
 | `FormattedText` | Same as `Text` |
 | `SelectionBold`, `SelectionItalic`, `SelectionPlain`, `ToggleSelectionBold`, `ToggleSelectionItalic` | Read, add or remove `**` / `*` around the selection |
 | `LineNumber(position)`, `CharacterPosition(line)`, `CharacterPosition(x, y)`, `InsertionPosition(x, y)` | Work on the lines of the raw text |
-| `AllowStyledText`, `AllowSpellChecking`, `FontUnit`, `Format`, `HasHorizontalScrollbar`, `HideSelection`, `HorizontalScrollPosition`, `LineHeight`, `SelectionAlignment`, `SelectionFontName`, `SelectionFontSize`, `SelectionTextColor`, `SelectionUnderline`, `TextAlignment`, `ToggleSelectionUnderline`, `UnicodeMode`, `ValidationMask`, `ValidationFailed` event | Accepted so your code compiles, but have no effect |
+| `AllowStyledText`, `AllowSpellChecking`, `FontUnit`, `Format`, `HasHorizontalScrollbar`, `HideSelection`, `HorizontalScrollPosition`, `LineHeight`, `SelectionAlignment`, `SelectionFontName`, `SelectionFontSize`, `SelectionTextColor`, `SelectionUnderline`, `ToggleSelectionUnderline`, `UnicodeMode`, `ValidationMask`, `ValidationFailed` event | Accepted so your code compiles, but have no effect |
 
 ### Events
 
