@@ -1430,10 +1430,6 @@ Inherits DesktopCanvas
 		        g.DrawingColor = ToolbarHoverColor
 		      End If
 		      g.FillRoundRectangle(x, top + 3, kToolbarButtonWidth, h - 6, 7, 7)
-		    ElseIf items(i) = kToolPlainText And Not mRenderMarkdown Then
-		      // The view toggle stays pressed while the plain text is shown
-		      g.DrawingColor = ToolbarPressedColor
-		      g.FillRoundRectangle(x, top + 3, kToolbarButtonWidth, h - 6, 7, 7)
 		    End If
 		    DrawToolbarIcon(g, items(i), x + kToolbarButtonWidth / 2, top + h / 2)
 		  Next
@@ -1496,12 +1492,7 @@ Inherits DesktopCanvas
 		    g.FillRectangle(cx - 7.5, cy + 2, 15, 1)
 		    g.FillRectangle(cx - 0.5, cy - 6, 1, 12)
 		  Case kToolPlainText
-		    g.PenSize = 1.25
-		    g.DrawRoundRectangle(cx - 9, cy - 6, 18, 12, 3, 3)
-		    DrawCenteredText(g, "M", cx - 3, cy, "System", 8, True, False)
-		    g.FillRectangle(cx + 4, cy - 3, 1.5, 4)
-		    g.DrawLine(cx + 2.25, cy + 0.5, cx + 4.75, cy + 3)
-		    g.DrawLine(cx + 7.25, cy + 0.5, cx + 4.75, cy + 3)
+		    DrawViewIcon(g, cx, cy)
 		  Case kToolRule
 		    g.FillRectangle(cx - 8, cy - 0.75, 16, 1.5)
 		    g.FillRectangle(cx - 8, cy - 5, 1.5, 3)
@@ -1536,14 +1527,19 @@ Inherits DesktopCanvas
 		  g.PenSize = 1
 		  g.DrawRoundRectangle(x, y, w, h, 7, 7)
 		  
-		  Var ink As Color = EffectiveTextColor
-		  g.DrawingColor = ink
-		  Var cx As Double = x + w / 2
-		  Var cy As Double = y + h / 2
+		  DrawViewIcon(g, x + w / 2, y + h / 2)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub DrawViewIcon(g As Graphics, cx As Double, cy As Double)
+		  // The view toggle's icon, in the toolbar and on the read-only button alike:
+		  // M and an eye for rendered Markdown, T and an eye for plain text
+		  g.DrawingColor = EffectiveTextColor
 		  Var letter As String = "T"
 		  If mRenderMarkdown Then letter = "M"
 		  DrawCenteredText(g, letter, cx - 6, cy, "System", 11, True, False)
-		  
+
 		  // Eye: an almond outline with a pupil
 		  Var ex As Double = cx + 5
 		  g.PenSize = 1.25
@@ -3528,8 +3524,10 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Sub UpdateMouseCursor()
-		  // Arrow over the toolbar, hand while Cmd (macOS) / Ctrl (Windows, Linux) is held over a link
+		  // Arrow over the toolbar and the scroll bar, hand while Cmd (macOS) / Ctrl (Windows, Linux) is held over a link
 		  If mToolbarVisible And ToolbarContains(mMouseX, mMouseY) Then
+		    SetCursorKind(kCursorArrow)
+		  ElseIf mDraggingScrollbar Or (mHasVerticalScrollbar And mContentHeight > Height And mMouseX >= Width - kScrollbarHitWidth) Then
 		    SetCursorKind(kCursorArrow)
 		  ElseIf LinkModifierDown(True) And Not mMouseSelecting And LinkAt(mMouseX, mMouseY) <> "" Then
 		    SetCursorKind(kCursorLink)
