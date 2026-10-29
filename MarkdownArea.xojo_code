@@ -183,7 +183,7 @@ Inherits DesktopCanvas
 		    DeleteForward(wordModifier)
 		    Return True
 		  Case 13, 3 // Return, Enter
-		    InsertTyped(Chr(10))
+		    If MultiLine Then InsertTyped(Chr(10))
 		    Return True
 		  Case 9 // Tab (only arrives here when AllowTabs is True)
 		    InsertTyped(Chr(9))
@@ -545,7 +545,7 @@ Inherits DesktopCanvas
 		    End If
 		    
 		    // Overlay scroll thumb
-		    If mContentHeight > Height Then
+		    If mHasVerticalScrollbar And mContentHeight > Height Then
 		      Var thumbHeight As Double = ThumbHeight
 		      Var thumbY As Double = 2 + (Height - 4 - thumbHeight) * mScrollY / (mContentHeight - Height)
 		      g.DrawingColor = Color.RGB(128, 128, 128, 110)
@@ -788,9 +788,9 @@ Inherits DesktopCanvas
 		    g.FontName = mFontName
 		    g.FontSize = BaseFontSize * scale
 		  End If
-		  g.Bold = (flags And kFlagBold) <> 0
-		  g.Italic = (flags And kFlagItalic) <> 0
-		  g.Underline = False
+		  g.Bold = mBold Or (flags And kFlagBold) <> 0
+		  g.Italic = mItalic Or (flags And kFlagItalic) <> 0
+		  g.Underline = mUnderline
 		End Sub
 	#tag EndMethod
 
@@ -2729,10 +2729,22 @@ Inherits DesktopCanvas
 		  If mReadOnly Then Return
 		  EndClickFreeze
 		  
-		  RecordUndo(editKind)
-		  
 		  Var sl, sc, el, ec As Integer
 		  GetSelection(sl, sc, el, ec)
+		  
+		  If MaximumCharactersAllowed > 0 Then
+		    // Only insert as much as still fits; line breaks count as one character
+		    value = NormalizedText(value)
+		    Var totalLength As Integer = OffsetOf(mLines.LastIndex, mLines(mLines.LastIndex).Length)
+		    Var remaining As Integer = MaximumCharactersAllowed - (totalLength - (OffsetOf(el, ec) - OffsetOf(sl, sc)))
+		    If value.Length > remaining Then
+		      value = value.Left(Max(0, remaining))
+		      If value = "" And sl = el And sc = ec Then Return
+		    End If
+		  End If
+		  
+		  RecordUndo(editKind)
+		  
 		  Var before As String = mLines(sl).Left(sc)
 		  Var after As String = mLines(el).Middle(ec)
 		  For i As Integer = el DownTo sl + 1
@@ -3379,6 +3391,68 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 
+	#tag Method, Flags = &h0, Description = 52657475726E732074686520636861726163746572206F6666736574206F662074686520666972737420636861726163746572206F662074686520676976656E206C696E65206F66207468652072617720746578742E
+		Function CharacterPosition(lineNumber As Integer) As Integer
+		  // Lines are the lines of the raw Markdown text, not wrapped rows
+		  Var lineIndex As Integer = Max(0, Min(lineNumber, mLines.LastIndex))
+		  Return OffsetOf(lineIndex, 0)
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 52657475726E732074686520636861726163746572206F6666736574206E65617265737420746F2074686520676976656E20706F696E742E
+		Function CharacterPosition(x As Double, y As Double) As Integer
+		  Var lineIndex, col As Integer
+		  PositionFromPoint(x, y, lineIndex, col)
+		  Return OffsetOf(lineIndex, col)
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 52657475726E732074686520636861726163746572206F6666736574206E65617265737420746F2074686520676976656E20706F696E742E
+		Function InsertionPosition(x As Integer, y As Integer) As Integer
+		  Return CharacterPosition(CType(x, Double), CType(y, Double))
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 52657475726E7320746865206C696E65206F66207468652072617720746578742074686174206120636861726163746572206F666673657420697320696E2E
+		Function LineNumber(charPosition As Integer) As Integer
+		  Var lineIndex, col As Integer
+		  PositionOfOffset(charPosition, lineIndex, col)
+		  Return lineIndex
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Function SelectionHasMarker(marker As String) As Boolean
+		  // True when the selection on one line is wrapped in the marker, either inside or just around it
+		  Var sl, sc, el, ec As Integer
+		  GetSelection(sl, sc, el, ec)
+		  If sl <> el Then Return False
+		  Var line As String = mLines(sl)
+		  Var k As Integer = marker.Length
+		  Var inside As String = line.Middle(sc, ec - sc)
+		  If inside.Length >= 2 * k And inside.Left(k) = marker And inside.Right(k) = marker Then Return True
+		  Return sc >= k And line.Middle(sc - k, k) = marker And line.Middle(ec, k) = marker
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 5772617073207468652073656C656374696F6E20696E202A2A206F722072656D6F7665732069742E
+		Sub ToggleSelectionBold()
+		  ToggleInlineMarker("**")
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 5772617073207468652073656C656374696F6E20696E202A206F722072656D6F7665732069742E
+		Sub ToggleSelectionItalic()
+		  ToggleInlineMarker("*")
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 4D61726B646F776E20686173206E6F20756E6465726C696E652073796E7461782C20736F207468697320646F6573206E6F7468696E672E204B65707420666F72204465736B746F70546578744172656120636F6D7061746962696C6974792E
+		Sub ToggleSelectionUnderline()
+		  // Markdown has no underline syntax; kept for DesktopTextArea compatibility
+		End Sub
+	#tag EndMethod
+
 	#tag Hook, Flags = &h0
 		Event Closing()
 	#tag EndHook
@@ -3453,6 +3527,10 @@ Inherits DesktopCanvas
 
 	#tag Hook, Flags = &h0
 		Event TextChanged()
+	#tag EndHook
+
+	#tag Hook, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792E204D61726B646F776E4172656120646F6573206E6F742075736520612076616C69646174696F6E206D61736B2C20736F2074686973206973206E65766572207261697365642E
+		Event ValidationFailed(invalidText As String, startPosition As Integer)
 	#tag EndHook
 
 
@@ -4264,6 +4342,294 @@ Inherits DesktopCanvas
 	#tag EndComputedProperty
 
 
+	#tag Property, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E
+		AllowSpellChecking As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792E20466F726D617474696E6720636F6D65732066726F6D20746865204D61726B646F776E20697473656C662E
+		AllowStyledText As Boolean = True
+	#tag EndProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 447261777320616C6C207465787420626F6C642C206C696B65204465736B746F7054657874417265612E426F6C642E
+		#tag Getter
+			Get
+			  Return mBold
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mBold = value
+			  mLayoutDirty = True
+			  Refresh(False)
+			End Set
+		#tag EndSetter
+		Bold As Boolean
+	#tag EndComputedProperty
+
+	#tag Property, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E20466F6E7453697A6520697320616C7761797320696E20706F696E74732E
+		FontUnit As FontUnits
+	#tag EndProperty
+
+	#tag Property, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E
+		Format As String
+	#tag EndProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 54686520746578743B2073616D6520617320546578742073696E6365204D61726B646F776E4172656120686173206E6F20666F726D6174206D61736B2E
+		#tag Getter
+			Get
+			  Return Text
+			End Get
+		#tag EndGetter
+		FormattedText As String
+	#tag EndComputedProperty
+
+	#tag Property, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E205465787420616C7761797320777261707320746F2074686520656469746F722077696474682E
+		HasHorizontalScrollbar As Boolean
+	#tag EndProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 53686F777320746865207363726F6C6C207468756D62207768656E2074686520746578742069732074616C6C6572207468616E2074686520656469746F722E
+		#tag Getter
+			Get
+			  Return mHasVerticalScrollbar
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mHasVerticalScrollbar = value
+			  Refresh(False)
+			End Set
+		#tag EndSetter
+		HasVerticalScrollbar As Boolean
+	#tag EndComputedProperty
+
+	#tag Property, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E
+		HideSelection As Boolean
+	#tag EndProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E
+		#tag Getter
+			Get
+			  // Text always wraps, so there is no horizontal scrolling
+			  Return 0
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  #Pragma Unused value
+			End Set
+		#tag EndSetter
+		HorizontalScrollPosition As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 447261777320616C6C2074657874206974616C69632C206C696B65204465736B746F7054657874417265612E4974616C69632E
+		#tag Getter
+			Get
+			  Return mItalic
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mItalic = value
+			  mLayoutDirty = True
+			  Refresh(False)
+			End Set
+		#tag EndSetter
+		Italic As Boolean
+	#tag EndComputedProperty
+
+	#tag Property, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E20557365204C696E6553706163696E6720696E73746561642E
+		LineHeight As Double
+	#tag EndProperty
+
+	#tag Property, Flags = &h0, Description = 4D6178696D756D206C656E677468206F662074686520746578742E2030206D65616E73206E6F206C696D69742E
+		MaximumCharactersAllowed As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h0, Description = 5768656E2046616C73652C2052657475726E20616E6420456E74657220646F6E277420696E73657274206C696E6520627265616B732E
+		MultiLine As Boolean = True
+	#tag EndProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E
+		#tag Getter
+			Get
+			  Return 0
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  #Pragma Unused value
+			End Set
+		#tag EndSetter
+		SelectionAlignment As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 54727565207768656E207468652073656C656374696F6E206973207772617070656420696E202A2A2E2053657474696E672069742061646473206F722072656D6F76657320746865206D61726B6572732E
+		#tag Getter
+			Get
+			  Return SelectionHasMarker("**")
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  If value <> SelectionHasMarker("**") Then ToggleInlineMarker("**")
+			End Set
+		#tag EndSetter
+		SelectionBold As Boolean
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E2052657475726E7320466F6E744E616D652E
+		#tag Getter
+			Get
+			  Return mFontName
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  #Pragma Unused value
+			End Set
+		#tag EndSetter
+		SelectionFontName As String
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E2052657475726E7320466F6E7453697A652E
+		#tag Getter
+			Get
+			  Return mFontSize
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  #Pragma Unused value
+			End Set
+		#tag EndSetter
+		SelectionFontSize As Single
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 54727565207768656E207468652073656C656374696F6E206973207772617070656420696E202A2E2053657474696E672069742061646473206F722072656D6F76657320746865206D61726B6572732E
+		#tag Getter
+			Get
+			  Return SelectionHasMarker("*") And Not SelectionHasMarker("**")
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  If value <> SelectionItalic Then ToggleInlineMarker("*")
+			End Set
+		#tag EndSetter
+		SelectionItalic As Boolean
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 54727565207768656E207468652073656C656374696F6E206973206E65697468657220626F6C64206E6F72206974616C69632E2053657474696E6720697420746F20547275652072656D6F76657320626F74682E
+		#tag Getter
+			Get
+			  Return Not SelectionBold And Not SelectionItalic
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  If value Then
+			    SelectionBold = False
+			    SelectionItalic = False
+			  End If
+			End Set
+		#tag EndSetter
+		SelectionPlain As Boolean
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E2052657475726E732054657874436F6C6F722E
+		#tag Getter
+			Get
+			  Return EffectiveTextColor
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  #Pragma Unused value
+			End Set
+		#tag EndSetter
+		SelectionTextColor As Color
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E204D61726B646F776E20686173206E6F20756E6465726C696E652073796E7461782E
+		#tag Getter
+			Get
+			  Return False
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  #Pragma Unused value
+			End Set
+		#tag EndSetter
+		SelectionUnderline As Boolean
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 41205374796C65645465787420686F6C64696E672074686520726177204D61726B646F776E2E2053657474696E67206974207265706C616365732054657874207769746820746865205374796C656454657874277320706C61696E20746578742E
+		#tag Getter
+			Get
+			  // Markdown carries its formatting in the text itself, so this is a plain copy of Text.
+			  // Changing styles on the returned object does not affect the control.
+			  Var st As New StyledText
+			  st.Text = Text
+			  Return st
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  If value = Nil Then
+			    Text = ""
+			  Else
+			    Text = value.Text
+			  End If
+			End Set
+		#tag EndSetter
+		StyledText As StyledText
+	#tag EndComputedProperty
+
+	#tag Property, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E
+		TextAlignment As TextAlignments
+	#tag EndProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 556E6465726C696E657320616C6C20746578742C206C696B65204465736B746F7054657874417265612E556E6465726C696E652E
+		#tag Getter
+			Get
+			  Return mUnderline
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mUnderline = value
+			  mLayoutDirty = True
+			  Refresh(False)
+			End Set
+		#tag EndSetter
+		Underline As Boolean
+	#tag EndComputedProperty
+
+	#tag Property, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E
+		UnicodeMode As DesktopTextArea.UnicodeModes
+	#tag EndProperty
+
+	#tag Property, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792C20686173206E6F206566666563742E
+		ValidationMask As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mBold As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mHasVerticalScrollbar As Boolean = True
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mItalic As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mUnderline As Boolean
+	#tag EndProperty
+
 	#tag Constant, Name = kAlignCenter, Type = Double, Dynamic = False, Default = \"1", Scope = Private
 	#tag EndConstant
 
@@ -4937,6 +5303,152 @@ Inherits DesktopCanvas
 			Group="Behavior"
 			InitialValue=""
 			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="Bold"
+			Visible=true
+			Group="Font"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="Italic"
+			Visible=true
+			Group="Font"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="Underline"
+			Visible=true
+			Group="Font"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="FontUnit"
+			Visible=true
+			Group="Font"
+			InitialValue="0"
+			Type="FontUnits"
+			EditorType="Enum"
+			#tag EnumValues
+				"0 - Default"
+				"1 - Pixel"
+				"2 - Point"
+				"3 - Inch"
+				"4 - Millimeter"
+			#tag EndEnumValues
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="LineHeight"
+			Visible=true
+			Group="Font"
+			InitialValue="0"
+			Type="Double"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="TextAlignment"
+			Visible=true
+			Group="Behavior"
+			InitialValue="0"
+			Type="TextAlignments"
+			EditorType="Enum"
+			#tag EnumValues
+				"0 - Default"
+				"1 - Left"
+				"2 - Center"
+				"3 - Right"
+			#tag EndEnumValues
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="MultiLine"
+			Visible=true
+			Group="Behavior"
+			InitialValue="True"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="AllowStyledText"
+			Visible=true
+			Group="Behavior"
+			InitialValue="True"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="AllowSpellChecking"
+			Visible=true
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="HideSelection"
+			Visible=true
+			Group="Behavior"
+			InitialValue="True"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="MaximumCharactersAllowed"
+			Visible=true
+			Group="Behavior"
+			InitialValue="0"
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="Format"
+			Visible=true
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
+			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="ValidationMask"
+			Visible=true
+			Group="Behavior"
+			InitialValue=""
+			Type="String"
+			EditorType="MultiLineEditor"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="UnicodeMode"
+			Visible=true
+			Group="Behavior"
+			InitialValue="1"
+			Type="DesktopTextArea.UnicodeModes"
+			EditorType="Enum"
+			#tag EnumValues
+				"0 - Native"
+				"1 - Characters"
+				"2 - Codepoints"
+			#tag EndEnumValues
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="HasVerticalScrollbar"
+			Visible=true
+			Group="Appearance"
+			InitialValue="True"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="HasHorizontalScrollbar"
+			Visible=true
+			Group="Appearance"
+			InitialValue="False"
+			Type="Boolean"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior

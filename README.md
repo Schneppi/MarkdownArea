@@ -126,6 +126,22 @@ End Function
 
 `AddText(value)`, `Copy`, `Cut`, `Paste`, `SelectAll`, `Undo`, `Redo`
 
+### DesktopTextArea compatibility
+
+So you can change an existing `DesktopTextArea`'s Super to `MarkdownArea` without errors, the class also has the remaining `DesktopTextArea` members:
+
+| Member | Behavior in MarkdownArea |
+|:--|:--|
+| `Bold`, `Italic`, `Underline` | Applied to all text, on top of the Markdown styles |
+| `MultiLine` | When `False`, Return/Enter insert no line break |
+| `MaximumCharactersAllowed` | Limits the length of the text (`0` = no limit) |
+| `HasVerticalScrollbar` | Shows or hides the scroll thumb |
+| `StyledText` | A copy of the raw Markdown. Setting it replaces `Text`; styles on it are ignored |
+| `FormattedText` | Same as `Text` |
+| `SelectionBold`, `SelectionItalic`, `SelectionPlain`, `ToggleSelectionBold`, `ToggleSelectionItalic` | Read, add or remove `**` / `*` around the selection |
+| `LineNumber(position)`, `CharacterPosition(line)`, `CharacterPosition(x, y)`, `InsertionPosition(x, y)` | Work on the lines of the raw text |
+| `AllowStyledText`, `AllowSpellChecking`, `FontUnit`, `Format`, `HasHorizontalScrollbar`, `HideSelection`, `HorizontalScrollPosition`, `LineHeight`, `SelectionAlignment`, `SelectionFontName`, `SelectionFontSize`, `SelectionTextColor`, `SelectionUnderline`, `TextAlignment`, `ToggleSelectionUnderline`, `UnicodeMode`, `ValidationMask`, `ValidationFailed` event | Accepted so your code compiles, but have no effect |
+
 ### Events
 
 | Event | Description |
