@@ -3558,8 +3558,8 @@ Inherits DesktopCanvas
 	#tag Method, Flags = &h21
 		Private Function ToolbarAllowed() As Boolean
 		  // While read-only, the toolbar is reduced to the view toggle (see ToolbarItems),
-		  // shown only when ReadOnlyRenderToggle allows it
-		  If mReadOnly And Not mReadOnlyRenderToggle Then Return False
+		  // shown only when ReadOnlyRenderToggle allows it. HasToolbar only affects editing.
+		  If mReadOnly Then Return mReadOnlyRenderToggle
 		  Return mHasToolbar
 		End Function
 	#tag EndMethod
@@ -4169,7 +4169,7 @@ Inherits DesktopCanvas
 		HasHorizontalScrollbar As Boolean
 	#tag EndProperty
 
-	#tag ComputedProperty, Flags = &h0, Description = 53686F777320746865204D61726B646F776E20746F6F6C626172207768656E20746865206D6F75736520636F6D6573206E6561722074686520746F70206F662074686520656469746F722E
+	#tag ComputedProperty, Flags = &h0, Description = 53686F777320746865204D61726B646F776E20746F6F6C626172207768656E20746865206D6F75736520636F6D6573206E6561722074686520746F70206F662074686520656469746F722E205768696C6520526561644F6E6C792069732054727565207468657265206973206E6F20746F6F6C6261722C206F6E6C7920746865207669657720627574746F6E202873656520526561644F6E6C7952656E646572546F67676C65292E
 		#tag Getter
 			Get
 			  Return mHasToolbar
@@ -4178,7 +4178,8 @@ Inherits DesktopCanvas
 		#tag Setter
 			Set
 			  mHasToolbar = value
-			  If Not value Then SetToolbarState(False, -1)
+			  // The read-only view toggle doesn't depend on HasToolbar
+			  If Not value And Not mReadOnly Then SetToolbarState(False, -1)
 			  Refresh(False)
 			End Set
 		#tag EndSetter
@@ -4694,7 +4695,7 @@ Inherits DesktopCanvas
 		ReadOnly As Boolean
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0, Description = 53686F77732074686520736D616C6C204D61726B646F776E2F706C61696E2074657874207669657720627574746F6E20696E2074686520746F7020726967687420636F726E6572207768696C6520526561644F6E6C7920697320547275652E204E6565647320486173546F6F6C6261722E
+	#tag ComputedProperty, Flags = &h0, Description = 53686F77732074686520736D616C6C204D61726B646F776E2F706C61696E2074657874207669657720627574746F6E20696E2074686520746F7020726967687420636F726E6572207768696C6520526561644F6E6C7920697320547275652E
 		#tag Getter
 			Get
 			  Return mReadOnlyRenderToggle
