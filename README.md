@@ -120,7 +120,7 @@ Setting `Markdown` or `Text` to an empty string clears the editor but keeps the 
 
 Set `ReadOnly` to `True` to show a document that users can't change. They can still select and copy text, and Cmd/Ctrl-click links.
 
-A read-only editor has no formatting toolbar, because none of its buttons could be used. Instead, the rendered/plain text toggle is always shown in the top right corner, so users can still switch the view. It doesn't wait for the mouse to come near the top edge. Setting `HasToolbar` to `False` hides this button too.
+A read-only editor has no formatting toolbar, because none of its buttons could be used. Instead, a small view button is always shown in the top right corner, so users can still switch the view. It doesn't wait for the mouse to come near the top edge, and it has no frame around it. Its icon shows the view you're reading: **M** and an eye for rendered Markdown, **T** and an eye for plain text. Setting `HasToolbar` to `False` hides this button too.
 
 When `ReadOnly` is set back to `False`, the full toolbar returns and appears again when the mouse comes near the top edge.
 
@@ -168,7 +168,7 @@ End Function
 | `Markdown` | String | The raw Markdown text. Setting a non-empty string shows it rendered. Code only, not in the Inspector |
 | `Text` | String | The same raw text. Setting a non-empty string shows it as plain text |
 | `RenderMarkdown` | Boolean | `True` shows the text rendered, `False` as plain text. The toolbar toggle switches it too |
-| `ReadOnly` | Boolean | Prevents editing; selection and copying still work. Replaces the toolbar with the view toggle in the top right corner |
+| `ReadOnly` | Boolean | Prevents editing; selection and copying still work. Replaces the toolbar with a small view button in the top right corner |
 | `HasToolbar` | Boolean | Shows the formatting toolbar when the mouse comes near the top edge, or the view toggle while `ReadOnly` is `True` |
 | `ToolbarRevealDistance` | Integer | Distance in points from the top edge within which the toolbar appears |
 | `BaseFolder` | FolderItem | Folder that relative image and link paths are resolved against |

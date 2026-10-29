@@ -1375,6 +1375,10 @@ Inherits DesktopCanvas
 		  // A floating bar centered at the top of the editor
 		  LayoutToolbar
 		  If mToolbarVisibleCount = 0 Then Return
+		  If mReadOnly Then
+		    DrawViewButton(g)
+		    Return
+		  End If
 		  
 		  Var top As Double = kToolbarMargin
 		  Var left As Double = mToolbarLeft
@@ -1412,6 +1416,41 @@ Inherits DesktopCanvas
 		    End If
 		    DrawToolbarIcon(g, items(i), x + kToolbarButtonWidth / 2, top + h / 2)
 		  Next
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub DrawViewButton(g As Graphics)
+		  // The read-only view toggle: a compact button without the toolbar's frame.
+		  // Its icon shows the current view: M and an eye for rendered Markdown, T and an eye for plain text.
+		  Var x As Double = mToolbarX(0)
+		  Var y As Double = kToolbarMargin
+		  Var w As Double = kViewButtonWidth
+		  Var h As Double = kViewButtonHeight
+		  
+		  If mToolbarHoverItem = 0 And mToolbarPressed = 0 Then
+		    g.DrawingColor = ToolbarPressedColor
+		  ElseIf mToolbarHoverItem = 0 Then
+		    g.DrawingColor = ToolbarHoverColor
+		  Else
+		    g.DrawingColor = ToolbarBackgroundColor
+		  End If
+		  g.FillRoundRectangle(x, y, w, h, 7, 7)
+		  
+		  Var ink As Color = EffectiveTextColor
+		  g.DrawingColor = ink
+		  Var cx As Double = x + w / 2
+		  Var cy As Double = y + h / 2
+		  Var letter As String = "T"
+		  If mRenderMarkdown Then letter = "M"
+		  DrawCenteredText(g, letter, cx - 6, cy, "System", 11, True, False)
+		  
+		  // Eye: an almond outline with a pupil
+		  Var ex As Double = cx + 5
+		  g.PenSize = 1.25
+		  g.DrawOval(ex - 5, cy - 3, 10, 6)
+		  g.FillOval(ex - 1.5, cy - 1.5, 3, 3)
+		  g.PenSize = 1
 		End Sub
 	#tag EndMethod
 
@@ -2121,12 +2160,13 @@ Inherits DesktopCanvas
 		  mToolbarX.ResizeTo(items.LastIndex)
 		  Var available As Double = Width - (2 * kToolbarMargin) - kScrollbarReserve
 		  
-		  Var x As Double = kToolbarInset
+		  Var inset As Double = ToolbarInset
+		  Var x As Double = inset
 		  Var count As Integer = 0
 		  For i As Integer = 0 To items.LastIndex
-		    Var itemWidth As Double = kToolbarButtonWidth
+		    Var itemWidth As Double = ToolbarButtonWidth
 		    If items(i) < 0 Then itemWidth = kToolbarSeparatorWidth
-		    If x + itemWidth + kToolbarInset > available Then Exit For
+		    If x + itemWidth + inset > available Then Exit For
 		    mToolbarX(i) = x
 		    x = x + itemWidth + kToolbarGap
 		    count = i + 1
@@ -2140,7 +2180,7 @@ Inherits DesktopCanvas
 		  If count = 0 Then
 		    mToolbarWidth = 0
 		  Else
-		    mToolbarWidth = mToolbarX(count - 1) + kToolbarButtonWidth + kToolbarInset
+		    mToolbarWidth = mToolbarX(count - 1) + ToolbarButtonWidth + inset
 		  End If
 		  If mReadOnly Then
 		    // The read-only view toggle sits in the top right corner
@@ -3264,10 +3304,33 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
+		Private Function ToolbarButtonWidth() As Double
+		  // The read-only view toggle is a smaller button than the editing toolbar's
+		  If mReadOnly Then Return kViewButtonWidth
+		  Return kToolbarButtonWidth
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
 		Private Function ToolbarContains(x As Integer, y As Integer) As Boolean
 		  If Not ToolbarAllowed Then Return False
 		  LayoutToolbar
-		  Return mToolbarVisibleCount > 0 And x >= mToolbarLeft And x < mToolbarLeft + mToolbarWidth And y >= kToolbarMargin And y < kToolbarMargin + kToolbarHeight
+		  Return mToolbarVisibleCount > 0 And x >= mToolbarLeft And x < mToolbarLeft + mToolbarWidth And y >= kToolbarMargin And y < kToolbarMargin + ToolbarHeight
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Function ToolbarHeight() As Double
+		  If mReadOnly Then Return kViewButtonHeight
+		  Return kToolbarHeight
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Function ToolbarInset() As Double
+		  // The read-only view toggle has no frame around its button
+		  If mReadOnly Then Return 0
+		  Return kToolbarInset
 		End Function
 	#tag EndMethod
 
@@ -3277,7 +3340,7 @@ Inherits DesktopCanvas
 		  If Not ToolbarContains(x, y) Then Return -1
 		  Var items() As Integer = ToolbarItems
 		  For i As Integer = 0 To mToolbarVisibleCount - 1
-		    If items(i) >= 0 And x >= mToolbarX(i) And x < mToolbarX(i) + kToolbarButtonWidth Then Return i
+		    If items(i) >= 0 And x >= mToolbarX(i) And x < mToolbarX(i) + ToolbarButtonWidth Then Return i
 		  Next
 		  Return -1
 		End Function
@@ -5027,6 +5090,12 @@ Inherits DesktopCanvas
 	#tag EndConstant
 
 	#tag Constant, Name = kToolTask, Type = Double, Dynamic = False, Default = \"10", Scope = Private
+	#tag EndConstant
+
+	#tag Constant, Name = kViewButtonHeight, Type = Double, Dynamic = False, Default = \"22", Scope = Private
+	#tag EndConstant
+
+	#tag Constant, Name = kViewButtonWidth, Type = Double, Dynamic = False, Default = \"30", Scope = Private
 	#tag EndConstant
 
 	#tag Constant, Name = kWheelStep, Type = Double, Dynamic = False, Default = \"4", Scope = Private
