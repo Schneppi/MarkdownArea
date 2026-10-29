@@ -256,8 +256,20 @@ Inherits DesktopCanvas
 		    Return False
 		  End If
 		  
-		  // Scroll thumb
+		  // Scroll bar: a click above or below the thumb scrolls one page, the thumb itself is dragged
 		  If mContentHeight > Height And x >= Width - kScrollbarHitWidth Then
+		    Var thumbHeight As Double = ThumbHeight
+		    Var thumbY As Double = 2 + (Height - 4 - thumbHeight) * mScrollY / (mContentHeight - Height)
+		    If y < thumbY Or y >= thumbY + thumbHeight Then
+		      If y < thumbY Then
+		        mScrollY = mScrollY - Height
+		      Else
+		        mScrollY = mScrollY + Height
+		      End If
+		      ClampScroll
+		      Refresh(False)
+		      Return True
+		    End If
 		    mDraggingScrollbar = True
 		    mDragStartY = y
 		    mDragStartScroll = mScrollY
