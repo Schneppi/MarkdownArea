@@ -105,7 +105,7 @@ End
 		  sample.Add("```")
 		  sample.Add("Var greeting As String = ""Hello""")
 		  sample.Add("```")
-		  Body.Text = String.FromArray(sample, EndOfLine)
+		  Body.Markdown = String.FromArray(sample, EndOfLine)
 		End Sub
 	#tag EndEvent
 

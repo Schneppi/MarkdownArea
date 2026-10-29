@@ -10,7 +10,7 @@ A live-rendering Markdown editor control for Xojo desktop apps, written in pure 
 
 It works like editors such as Typora or Obsidian's live preview. The text stays plain Markdown, but every line is shown rendered **as you type**. Only the line with the caret shows its raw Markdown, so you can always see and edit the syntax you're working on. Move the caret away and the line renders again.
 
-The `Text` property always holds the raw, unchanged Markdown, so you can save and load it like any other string.
+The `Markdown` and `Text` properties both hold the raw, unchanged Markdown, so you can save and load it like any other string. Setting `Markdown` shows the text rendered. Setting `Text` shows it as plain text, the way a `DesktopTextArea` would. Setting either one to an empty string keeps the current view.
 
 ![Lists, task lists, block quote, rule and code block](Screenshots/markdownarea-2.png)
 
@@ -59,18 +59,21 @@ The `Text` property always holds the raw, unchanged Markdown, so you can save an
 
 1. Copy `MarkdownArea.xojo_code` into your project (drag it into the Xojo navigator).
 2. Drag a `DesktopCanvas` onto a window and set its **Super** to `MarkdownArea`.
-3. Set the `Text` property, or let your users start typing.
+3. Set the `Markdown` property, or let your users start typing.
 
 The included demo project (`MarkdownArea.xojo_project`) shows a window with sample content for every supported element.
 
 ## Usage
 
 ```xojo
-// Load Markdown
-MarkdownArea1.Text = "# Hello" + EndOfLine + "This is **Markdown**."
+// Load Markdown and show it rendered
+MarkdownArea1.Markdown = "# Hello" + EndOfLine + "This is **Markdown**."
 
 // Save Markdown
-Var markdown As String = MarkdownArea1.Text
+Var markdown As String = MarkdownArea1.Markdown
+
+// Load plain text and show it unrendered
+MarkdownArea1.Text = notes
 
 // Resolve relative image paths against the document's folder
 MarkdownArea1.BaseFolder = documentFile.Parent
@@ -108,7 +111,8 @@ End Function
 
 | Property | Type | Description |
 |:--|:--|:--|
-| `Text` | String | The raw, unrendered Markdown text |
+| `Markdown` | String | The raw Markdown text. Setting a non-empty string turns `RenderMarkdown` on |
+| `Text` | String | The same raw text. Setting a non-empty string turns `RenderMarkdown` off |
 | `RenderMarkdown` | Boolean | When `False`, the text is shown as raw Markdown |
 | `ReadOnly` | Boolean | Prevents editing; selection and copying still work |
 | `HasToolbar` | Boolean | Shows the formatting toolbar when the mouse comes near the top edge. Never shown while `ReadOnly` is `True` |

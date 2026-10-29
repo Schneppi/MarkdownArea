@@ -2939,6 +2939,25 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
+		Private Sub SetContent(value As String)
+		  // Replaces the whole document; Text and Markdown differ only in how they show it
+		  mLines = NormalizedText(value).Split(Chr(10))
+		  If mLines.Count = 0 Then mLines.Add("")
+		  mCaretLine = 0
+		  mCaretCol = 0
+		  mAnchorLine = 0
+		  mAnchorCol = 0
+		  mScrollY = 0
+		  mUndoTexts.ResizeTo(-1)
+		  mUndoOffsets.ResizeTo(-1)
+		  mRedoTexts.ResizeTo(-1)
+		  mRedoOffsets.ResizeTo(-1)
+		  mLastEditKind = kEditOther
+		  TextDidChange
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
 		Private Sub SetCursorKind(kind As Integer)
 		  If kind = mCursorKind Then Return
 		  mCursorKind = kind
@@ -4271,7 +4290,23 @@ Inherits DesktopCanvas
 		Private TableStripeColor As Color
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0, Description = 546865207261772C20756E72656E6465726564204D61726B646F776E20746578742E
+	#tag ComputedProperty, Flags = &h0, Description = 54686520726177204D61726B646F776E20746578742E2053657474696E6720697420746F2061206E6F6E2D656D70747920737472696E672073686F77732074686520746578742072656E6465726564206173204D61726B646F776E2E
+		#tag Getter
+			Get
+			  Return Text
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  // Text handed over as Markdown is shown rendered; clearing it keeps the current view
+			  If value <> "" Then mRenderMarkdown = True
+			  SetContent(value)
+			End Set
+		#tag EndSetter
+		Markdown As String
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 546865207261772C20756E72656E646572656420746578742E2053657474696E6720697420746F2061206E6F6E2D656D70747920737472696E672073686F777320746865207465787420617320706C61696E20746578742C206C696B6520612054657874417265612E
 		#tag Getter
 			Get
 			  Return String.FromArray(mLines, EndOfLine)
@@ -4279,19 +4314,9 @@ Inherits DesktopCanvas
 		#tag EndGetter
 		#tag Setter
 			Set
-			  mLines = NormalizedText(value).Split(Chr(10))
-			  If mLines.Count = 0 Then mLines.Add("")
-			  mCaretLine = 0
-			  mCaretCol = 0
-			  mAnchorLine = 0
-			  mAnchorCol = 0
-			  mScrollY = 0
-			  mUndoTexts.ResizeTo(-1)
-			  mUndoOffsets.ResizeTo(-1)
-			  mRedoTexts.ResizeTo(-1)
-			  mRedoOffsets.ResizeTo(-1)
-			  mLastEditKind = kEditOther
-			  TextDidChange
+			  // Text handed over as plain text is shown unrendered; clearing it keeps the current view
+			  If value <> "" Then mRenderMarkdown = False
+			  SetContent(value)
 			End Set
 		#tag EndSetter
 		Text As String
