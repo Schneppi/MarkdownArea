@@ -10,7 +10,7 @@ A live-rendering Markdown editor control for Xojo desktop apps, written in pure 
 
 It works like editors such as Typora or Obsidian's live preview. The text stays plain Markdown, but every line is shown rendered **as you type**. Only the line with the caret shows its raw Markdown, so you can always see and edit the syntax you're working on. Move the caret away and the line renders again.
 
-The `Markdown` and `Text` properties both hold the raw, unchanged Markdown, so you can save and load it like any other string. Setting `Markdown` shows the text rendered. Setting `Text` shows it as plain text, the way a `DesktopTextArea` would. Setting either one to an empty string keeps the current view.
+The `Markdown` property always holds the raw, unchanged Markdown, so you can save and load it like any other string. The editor can also show the whole document as plain text: see [Rendered and plain text view](#rendered-and-plain-text-view).
 
 ![Lists, task lists, block quote, rule and code block](Screenshots/markdownarea-2.png)
 
@@ -39,8 +39,9 @@ The `Markdown` and `Text` properties both hold the raw, unchanged Markdown, so y
 - Undo/Redo with up to 200 steps, typing grouped into sensible steps
 - Cut, Copy, Paste and Select All through the standard Edit menu, keyboard shortcuts and a built-in context menu
 - Shortcuts: **Cmd/Ctrl+B** bold, **Cmd/Ctrl+I** italic, **Cmd/Ctrl+K** link
-- A **floating formatting toolbar** that appears when the mouse comes near the top edge. It has bold, italic, strikethrough, inline code, H1–H3, bulleted/numbered/task lists, quote, link, code block, table and horizontal rule. Its first button switches between rendered Markdown and plain text. Buttons that don't fit a narrow editor are left out automatically. While the editor is read-only, the toolbar is replaced by just this view toggle, always shown in the top right corner.
-- Optional read-only mode and an option to show the raw, unrendered Markdown
+- A **floating formatting toolbar** that appears when the mouse comes near the top edge. It has a rendered/plain text toggle, bold, italic, strikethrough, inline code, H1–H3, bulleted/numbered/task lists, quote, link, code block, table and horizontal rule. Buttons that don't fit a narrow editor are left out automatically, starting from the right.
+- A **rendered/plain text toggle**, in the toolbar and from code. See [Rendered and plain text view](#rendered-and-plain-text-view).
+- An optional **read-only mode**. See [Read-only mode](#read-only-mode).
 
 ### Look & platform
 
@@ -60,6 +61,8 @@ The `Markdown` and `Text` properties both hold the raw, unchanged Markdown, so y
 1. Copy `MarkdownArea.xojo_code` into your project (drag it into the Xojo navigator).
 2. Drag a `DesktopCanvas` onto a window and set its **Super** to `MarkdownArea`.
 3. Set the `Markdown` property, or let your users start typing.
+
+To use `MarkdownArea` in place of a `DesktopTextArea` you already have, see [Replacing a DesktopTextArea](#replacing-a-desktoptextarea).
 
 The included demo project (`MarkdownArea.xojo_project`) shows a window with sample content for every supported element.
 
@@ -81,6 +84,57 @@ MarkdownArea1.BaseFolder = documentFile.Parent
 // Append text at the end of the document
 MarkdownArea1.AddText(EndOfLine + "- [ ] New task")
 ```
+
+### Rendered and plain text view
+
+The editor shows the document either rendered as Markdown or as plain text, with every Markdown character visible. The text itself never changes, only how it's shown.
+
+Users switch the view with the first toolbar button, the one with the Markdown logo (an "M" and a down arrow). While plain text is shown, the button stays highlighted, and its tooltip says which view a click switches to.
+
+In code, the property you load the text through picks the view:
+
+| You set | The view switches to | Use it for |
+|:--|:--|:--|
+| `Markdown = value` | Rendered Markdown | Markdown documents |
+| `Text = value` | Plain text, like a `DesktopTextArea` | Plain text, or code that was written for a `DesktopTextArea` |
+| `RenderMarkdown = True` / `False` | Rendered / plain text | Switching the view without loading new text |
+
+```xojo
+// A Markdown document opens rendered
+MarkdownArea1.Markdown = readmeContents
+
+// A plain-text note opens unrendered
+MarkdownArea1.Text = noteContents
+
+// Switch the view later; the text stays the same
+MarkdownArea1.RenderMarkdown = False
+```
+
+Reading `Markdown` or `Text` returns the same raw text, whichever view is shown.
+
+Setting `Markdown` or `Text` to an empty string clears the editor but keeps the current view. Xojo applies the Inspector's empty `Text` to every control when its window opens, so without this rule every MarkdownArea would open in plain text.
+
+`Markdown` is only available in code, not in the Inspector. Text you type into the Inspector's `Text` field goes through `Text`, so it opens as plain text. To show design-time text rendered, set `Markdown` in the control's `Opening` event instead.
+
+### Read-only mode
+
+Set `ReadOnly` to `True` to show a document that users can't change. They can still select and copy text, and Cmd/Ctrl-click links.
+
+A read-only editor has no formatting toolbar, because none of its buttons could be used. Instead, the rendered/plain text toggle is always shown in the top right corner, so users can still switch the view. It doesn't wait for the mouse to come near the top edge. Setting `HasToolbar` to `False` hides this button too.
+
+When `ReadOnly` is set back to `False`, the full toolbar returns and appears again when the mouse comes near the top edge.
+
+### Replacing a DesktopTextArea
+
+`MarkdownArea` has the properties, methods and events of `DesktopTextArea` (except the macOS-only `StyledTextPrinter`), so existing code and window layouts keep compiling:
+
+1. Add `MarkdownArea.xojo_code` to your project.
+2. Select the `DesktopTextArea` in the window editor and change its **Super** to `MarkdownArea`. The values you set in the Inspector carry over.
+3. Run the project.
+
+Existing code that sets `Text` keeps working, and the editor shows that text as plain text, just as the TextArea did. To show it rendered instead, switch the assignment to `Markdown`, or set `RenderMarkdown = True` afterwards.
+
+Some `DesktopTextArea` members behave differently or have no effect, because Markdown keeps its formatting in the text itself. [DesktopTextArea compatibility](#desktoptextarea-compatibility) lists them all.
 
 ### Handling links yourself
 
@@ -111,11 +165,11 @@ End Function
 
 | Property | Type | Description |
 |:--|:--|:--|
-| `Markdown` | String | The raw Markdown text. Setting a non-empty string turns `RenderMarkdown` on |
-| `Text` | String | The same raw text. Setting a non-empty string turns `RenderMarkdown` off |
-| `RenderMarkdown` | Boolean | When `False`, the text is shown as raw Markdown |
-| `ReadOnly` | Boolean | Prevents editing; selection and copying still work |
-| `HasToolbar` | Boolean | Shows the formatting toolbar when the mouse comes near the top edge. While `ReadOnly` is `True`, only the Markdown/plain text toggle is shown, always, in the top right corner |
+| `Markdown` | String | The raw Markdown text. Setting a non-empty string shows it rendered. Code only, not in the Inspector |
+| `Text` | String | The same raw text. Setting a non-empty string shows it as plain text |
+| `RenderMarkdown` | Boolean | `True` shows the text rendered, `False` as plain text. The toolbar toggle switches it too |
+| `ReadOnly` | Boolean | Prevents editing; selection and copying still work. Replaces the toolbar with the view toggle in the top right corner |
+| `HasToolbar` | Boolean | Shows the formatting toolbar when the mouse comes near the top edge, or the view toggle while `ReadOnly` is `True` |
 | `ToolbarRevealDistance` | Integer | Distance in points from the top edge within which the toolbar appears |
 | `BaseFolder` | FolderItem | Folder that relative image and link paths are resolved against |
 | `TableAlignment` | TableAlignments | Places tables narrower than the editor on the left, center or right |
@@ -132,7 +186,7 @@ End Function
 
 ### DesktopTextArea compatibility
 
-So you can change an existing `DesktopTextArea`'s Super to `MarkdownArea` without errors, the class also has the remaining `DesktopTextArea` members:
+So you can change an existing `DesktopTextArea`'s Super to `MarkdownArea` without errors, the class also has the remaining `DesktopTextArea` members. `Text`, `ReadOnly`, `SelectedText`, `SelectionStart`, `SelectionLength`, the font and color properties, and the usual methods and events work as described above.
 
 | Member | Behavior in MarkdownArea |
 |:--|:--|
