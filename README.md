@@ -39,7 +39,7 @@ The `Markdown` property always holds the raw, unchanged Markdown, so you can sav
 - Undo/Redo with up to 200 steps, typing grouped into sensible steps
 - Cut, Copy, Paste and Select All through the standard Edit menu, keyboard shortcuts and a built-in context menu
 - Shortcuts: **Cmd/Ctrl+B** bold, **Cmd/Ctrl+I** italic, **Cmd/Ctrl+K** link
-- A **floating formatting toolbar** that appears when the mouse comes near the top edge. It has a rendered/plain text toggle, bold, italic, strikethrough, inline code, H1–H3, bulleted/numbered/task lists, quote, link, code block, table and horizontal rule. Buttons that don't fit a narrow editor are left out automatically, starting from the right.
+- A **floating formatting toolbar** that appears when the mouse comes near the top edge. It has a rendered/plain text toggle, bold, italic, strikethrough, inline code, H1–H3, bulleted/numbered/task lists, quote, link, image, code block, table and horizontal rule. Buttons that don't fit a narrow editor are left out automatically, starting from the right.
 - A **rendered/plain text toggle**, in the toolbar and from code. See [Rendered and plain text view](#rendered-and-plain-text-view).
 - An optional **read-only mode**. See [Read-only mode](#read-only-mode).
 

@@ -943,6 +943,8 @@ Inherits DesktopCanvas
 		    ApplyLinePrefix(action)
 		  Case kToolLink
 		    InsertLink
+		  Case kToolImage
+		    InsertLink(True)
 		  Case kToolCodeBlock
 		    ApplyCodeBlock
 		  Case kToolTable
@@ -1492,6 +1494,18 @@ Inherits DesktopCanvas
 		  Case kToolLink
 		    g.DrawRoundRectangle(cx - 8.5, cy - 3.5, 10, 7, 7, 7)
 		    g.DrawRoundRectangle(cx - 1.5, cy - 3.5, 10, 7, 7, 7)
+		  Case kToolImage
+		    // A framed landscape: a sun over a mountain
+		    g.PenSize = 1.25
+		    g.DrawRoundRectangle(cx - 8, cy - 6, 16, 12, 3, 3)
+		    g.FillOval(cx + 1.5, cy - 4, 3.5, 3.5)
+		    Var mountain As New GraphicsPath
+		    mountain.MoveToPoint(cx - 6, cy + 4)
+		    mountain.AddLineToPoint(cx - 2, cy - 1.5)
+		    mountain.AddLineToPoint(cx + 1, cy + 2)
+		    mountain.AddLineToPoint(cx + 3, cy)
+		    mountain.AddLineToPoint(cx + 6, cy + 4)
+		    g.FillPath(mountain, True)
 		  Case kToolCodeBlock
 		    DrawCenteredText(g, "{ }", cx, cy, CodeFontName, 11, True, False)
 		  Case kToolTable
@@ -1804,21 +1818,30 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
-		Private Sub InsertLink()
-		  // [selection](https://) with the URL selected, or [Link](https://) with "Link" selected
+		Private Sub InsertLink(isImage As Boolean = False)
+		  // [selection](https://) with the URL selected, or [Link](https://) with "Link" selected.
+		  // An image is the same with a leading "!": ![selection](https://) or ![Image](https://)
 		  If mReadOnly Then Return
+		  Var prefix As String = "["
+		  Var placeholder As String = "Link"
+		  If isImage Then
+		    prefix = "!["
+		    placeholder = "Image"
+		  End If
+
 		  Var sl, sc, el, ec As Integer
 		  GetSelection(sl, sc, el, ec)
 		  If sl = el And sc < ec Then
 		    Var label As String = mLines(sl).Middle(sc, ec - sc)
-		    ReplaceSelection("[" + label + "](https://)", kEditOther)
-		    SelectRange(sl, sc + label.Length + 3, sl, sc + label.Length + 11)
+		    ReplaceSelection(prefix + label + "](https://)", kEditOther)
+		    Var urlStart As Integer = sc + prefix.Length + label.Length + 2
+		    SelectRange(sl, urlStart, sl, urlStart + 8)
 		  Else
 		    SelectRange(mCaretLine, mCaretCol, mCaretLine, mCaretCol)
 		    Var lineIndex As Integer = mCaretLine
 		    Var col As Integer = mCaretCol
-		    ReplaceSelection("[Link](https://)", kEditOther)
-		    SelectRange(lineIndex, col + 1, lineIndex, col + 5)
+		    ReplaceSelection(prefix + placeholder + "](https://)", kEditOther)
+		    SelectRange(lineIndex, col + prefix.Length, lineIndex, col + prefix.Length + placeholder.Length)
 		  End If
 		End Sub
 	#tag EndMethod
@@ -3450,7 +3473,7 @@ Inherits DesktopCanvas
 		    kToolBold, kToolItalic, kToolStrike, kToolCode, kToolSeparator, _
 		    kToolH1, kToolH2, kToolH3, kToolSeparator, _
 		    kToolBullet, kToolNumbered, kToolTask, kToolQuote, kToolSeparator, _
-		    kToolLink, kToolCodeBlock, kToolTable, kToolRule)
+		    kToolLink, kToolImage, kToolCodeBlock, kToolTable, kToolRule)
 		  End If
 		  Return mToolbarItems
 		End Function
@@ -3490,6 +3513,8 @@ Inherits DesktopCanvas
 		    Return kLangQuote
 		  Case kToolLink
 		    Return kLangLink + " (" + shortcut + "K)"
+		  Case kToolImage
+		    Return kLangImage
 		  Case kToolCodeBlock
 		    Return kLangCodeBlock
 		  Case kToolTable
@@ -4992,6 +5017,10 @@ Inherits DesktopCanvas
 		#Tag Instance, Platform = Any, Language = de, Definition  = \"Kursiv"
 	#tag EndConstant
 
+	#tag Constant, Name = kLangImage, Type = String, Dynamic = True, Default = \"Image", Scope = Private
+		#Tag Instance, Platform = Any, Language = de, Definition  = \"Bild"
+	#tag EndConstant
+
 	#tag Constant, Name = kLangLink, Type = String, Dynamic = True, Default = \"Link", Scope = Private
 		#Tag Instance, Platform = Any, Language = de, Definition  = \"Link"
 	#tag EndConstant
@@ -5114,6 +5143,9 @@ Inherits DesktopCanvas
 	#tag EndConstant
 
 	#tag Constant, Name = kToolH3, Type = Double, Dynamic = False, Default = \"7", Scope = Private
+	#tag EndConstant
+
+	#tag Constant, Name = kToolImage, Type = Double, Dynamic = False, Default = \"17", Scope = Private
 	#tag EndConstant
 
 	#tag Constant, Name = kToolItalic, Type = Double, Dynamic = False, Default = \"2", Scope = Private
