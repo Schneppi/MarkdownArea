@@ -42,7 +42,7 @@ The `Markdown` property always holds the raw, unchanged Markdown, so you can sav
 - A **floating formatting toolbar** that appears when the mouse comes near the top edge. It has a rendered/plain text toggle, bold, italic, strikethrough, inline code, H1–H3, bulleted/numbered/task lists, quote, link, image, code block, table and horizontal rule. Buttons that don't fit a narrow editor are left out automatically, starting from the right.
 - A **rendered/plain text toggle**, in the toolbar and from code. See [Rendered and plain text view](#rendered-and-plain-text-view).
 - An optional **read-only mode**. See [Read-only mode](#read-only-mode).
-- **Printing** of the rendered Markdown, page by page, through `StyledTextPrinter`. See [Printing](#printing).
+- Optional **printing** of the rendered Markdown, page by page, through `StyledTextPrinter`, on macOS, Windows and Linux. See [Printing](#printing).
 
 ### Look & platform
 
@@ -59,13 +59,19 @@ The `Markdown` property always holds the raw, unchanged Markdown, so you can sav
 
 ## Installation
 
-1. Copy `MarkdownArea.xojo_code` into your project (drag it into the Xojo navigator). For printing, also add the optional `MarkdownPrinting` module (see [Printing](#printing)).
+1. Copy `MarkdownArea.xojo_code` into your project (drag it into the Xojo navigator).
 2. Drag a `DesktopCanvas` onto a window and set its **Super** to `MarkdownArea`.
 3. Set the `Markdown` property, or let your users start typing.
+4. Optional: to print, also add the `MarkdownPrinting` module. See [Adding printing to your project](#adding-printing-to-your-project).
+
+| File | Needed for |
+|:--|:--|
+| `MarkdownArea.xojo_code` | The editor. Always needed |
+| `MarkdownPrinting.xojo_code` and the `MarkdownPrinting` folder (with `MarkdownTextPrinter.xojo_code`) | Printing. Optional |
 
 To use `MarkdownArea` in place of a `DesktopTextArea` you already have, see [Replacing a DesktopTextArea](#replacing-a-desktoptextarea).
 
-The included demo project (`MarkdownArea.xojo_project`) shows a window with sample content for every supported element.
+The included demo project (`MarkdownArea.xojo_project`) shows a window with sample content for every supported element. **File > Print…** (Cmd/Ctrl+P) prints it.
 
 ## Usage
 
@@ -135,19 +141,35 @@ When `ReadOnly` is set back to `False`, the full toolbar returns and appears aga
 
 Existing code that sets `Text` keeps working, and the editor shows that text as plain text, just as the TextArea did. To show it rendered instead, switch the assignment to `Markdown`, or set `RenderMarkdown = True` afterwards.
 
+If your code prints the TextArea with `StyledTextPrinter`, also add the `MarkdownPrinting` module and change the printer's type from `StyledTextPrinter` to `MarkdownTextPrinter`. See [Printing](#printing).
+
 Some `DesktopTextArea` members behave differently or have no effect, because Markdown keeps its formatting in the text itself. [DesktopTextArea compatibility](#desktoptextarea-compatibility) lists them all.
 
 ### Printing
 
-`StyledTextPrinter(g, width)` works like the one of `DesktopTextArea`. It returns a `MarkdownTextPrinter` that prints the rendered Markdown in blocks, one per page. Unlike the TextArea's version, which only exists on macOS, it works on every platform, because `MarkdownArea` draws the text itself.
+`StyledTextPrinter(g, width)` works like the method of the same name on `DesktopTextArea`. It returns a `MarkdownTextPrinter` that prints the document in blocks, usually one per page. Xojo's own `StyledTextPrinter` only exists on macOS. This one works on macOS, Windows and Linux, because `MarkdownArea` draws all of its text itself.
 
-Printing is optional. `StyledTextPrinter` and `MarkdownTextPrinter` live in the `MarkdownPrinting` module (`MarkdownPrinting.xojo_code` and the `MarkdownPrinting` folder), and `MarkdownArea` doesn't refer to them, so a project without the module compiles fine. To print, drag the module from the demo project into yours in the Xojo IDE, or copy `MarkdownPrinting.xojo_code` and the `MarkdownPrinting` folder.
+#### Adding printing to your project
+
+Printing is optional and kept out of `MarkdownArea.xojo_code`. It lives in the `MarkdownPrinting` module, which holds:
+
+- the `MarkdownTextPrinter` class, which does the printing, and
+- `StyledTextPrinter`, an extension method that adds `StyledTextPrinter(g, width)` to every `MarkdownArea`.
+
+`MarkdownArea` never refers to the module, so:
+
+- **Without the module**, your project compiles and runs as usual. `StyledTextPrinter` and `MarkdownTextPrinter` just don't exist, so only code that uses them fails to compile.
+- **With the module**, `MarkdownArea1.StyledTextPrinter(g, width)` is available on every `MarkdownArea` in the project.
+
+To add it, open the demo project and your project in the Xojo IDE and drag the `MarkdownPrinting` module from one navigator to the other. The class inside it comes along. On disk the module is two items: `MarkdownPrinting.xojo_code` and the `MarkdownPrinting` folder, which holds `MarkdownTextPrinter.xojo_code`. Copying only `MarkdownPrinting.xojo_code` leaves out the class.
+
+#### Printing a document
 
 ```xojo
 Const kMargin As Integer = 36 // half an inch
 Var settings As New PrinterSetup
 Var g As Graphics = settings.ShowPrinterDialog(Self)
-If g = Nil Then Return
+If g = Nil Then Return // the user cancelled
 
 Var printer As MarkdownTextPrinter = MarkdownArea1.StyledTextPrinter(g, g.Width - (2 * kMargin))
 Do
@@ -157,7 +179,38 @@ Do
 Loop
 ```
 
-The lines are printed rendered if `RenderMarkdown` is `True`, and as plain text otherwise, with light-mode colors even when the app is in dark mode. Pages break between lines, never through one. A table row or picture that is taller than a page is cut off, but pictures are scaled down to fit a page. Code that declares the printer `As StyledTextPrinter` needs to change that type to `MarkdownTextPrinter`. The demo app prints with **File > Print…**.
+Each `DrawBlock` call prints as much of the remaining document as fits into the given height, then `EOF` tells you whether anything is left. All sizes are in points (1/72 inch), like the printer's `Graphics`. The demo app's **File > Print…** menu handler in `Window1` uses this code.
+
+`New MarkdownTextPrinter(MarkdownArea1, g, width)` does the same as `MarkdownArea1.StyledTextPrinter(g, width)`.
+
+#### MarkdownTextPrinter
+
+| Member | Description |
+|:--|:--|
+| `DrawBlock(x As Double, y As Double, height As Double)` | Prints the next part of the document that fits into `height`, with its top left corner at `x`, `y` |
+| `EOF As Boolean` | `True` once the whole document has been printed. Read-only |
+| `Width As Double` | Width of the printed text in points. Set by `StyledTextPrinter`. Leave it unchanged while a document is printing, or text can be skipped or repeated at page breaks |
+| `Constructor(area As MarkdownArea, g As Graphics, width As Double)` | Creates a printer for `area` that draws into `g` |
+
+#### What gets printed
+
+- **The editor's view.** If `RenderMarkdown` is `True` every line is printed rendered, including the line with the caret. If it's `False` the raw Markdown is printed as plain text.
+- **The editor's settings**: `FontName`, `FontSize`, `LineSpacing`, `Bold`, `Italic`, `Underline`, `TextAlignment`, `TableAlignment` and `TableFullWidth`. Text wraps at the printer width, not the editor width.
+- **Light-mode colors**, even when the app runs in dark mode, so nothing is printed white on white. A `TextColor` you set yourself is used. The background color is not printed.
+- **Pictures** that have already been loaded. They are scaled down to fit both the width and the height of a page. A picture whose download hasn't finished yet is left out.
+- **Not printed**: the caret, the selection, the toolbar, the view button, the scroll bar and the border.
+
+#### Page breaks
+
+- Pages break between lines of text, never through one.
+- A wrapped paragraph can continue on the next page.
+- A table can break between its rows. Its header isn't repeated, and the part on the next page starts without a top border. A single table row taller than a page is cut off at the bottom.
+- Code blocks and block quotes are split at the break, with their background or bar on both pages.
+- Empty lines at the end of the document never start a new page.
+
+#### Effect on the editor
+
+`DrawBlock` lays the document out for the printer, draws the block and then restores the editor's own layout. The text, caret, selection and scroll position stay as they were, and the editor keeps its dark-mode colors on screen.
 
 ### Handling links yourself
 
@@ -208,7 +261,9 @@ End Function
 
 ### Methods
 
-`AddText(value)`, `Copy`, `Cut`, `Paste`, `SelectAll`, `Undo`, `Redo`, and `StyledTextPrinter(g, width)` when the optional `MarkdownPrinting` module is in the project (see [Printing](#printing))
+`AddText(value)`, `Copy`, `Cut`, `Paste`, `SelectAll`, `Undo`, `Redo`
+
+With the optional `MarkdownPrinting` module: `StyledTextPrinter(g, width) As MarkdownTextPrinter`. See [Printing](#printing) for it and for the `MarkdownTextPrinter` class.
 
 ### DesktopTextArea compatibility
 
