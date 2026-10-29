@@ -1391,7 +1391,7 @@ Begin DesktopWindow Window1
          MaximumCharactersAllowed=   0
          MultiLine       =   True
          ReadOnly        =   True
-         ReadOnlyRenderToggle=   True
+         ReadOnlyRenderToggle=   False
          RenderMarkdown  =   True
          Scope           =   2
          SelectedText    =   ""
