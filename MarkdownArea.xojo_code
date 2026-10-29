@@ -486,21 +486,7 @@ Inherits DesktopCanvas
 		    // Block decorations: code backgrounds, quote bars, horizontal rules
 		    For i As Integer = mRows(firstRow).Line To mLines.LastIndex
 		      If mLineTop(i) > viewBottom Then Exit For
-		      Var y As Double = mLineTop(i) - scroll
-		      Var h As Double = mLineBottom(i) - mLineTop(i)
-		      Select Case mLineKinds(i)
-		      Case kKindCode, kKindFence
-		        g.DrawingColor = CodeBackgroundColor
-		        g.FillRectangle(left, y, right - left, h)
-		      Case kKindQuote
-		        g.DrawingColor = MutedColor
-		        g.FillRectangle(left + 2, y, 3, h)
-		      Case kKindRule
-		        g.DrawingColor = MutedColor
-		        g.FillRectangle(left, Round(y + h / 2), right - left, 1)
-		      Case kKindTableHeader, kKindTableRow
-		        DrawTableRowChrome(g, i, left, y, h)
-		      End Select
+		      DrawLineDecoration(g, i, left, right, mLineTop(i) - scroll)
 		    Next
 		    
 		    // Selection
@@ -1251,6 +1237,7 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Function ContentWidth() As Double
+		  If mPrintWidth > 0 Then Return mPrintWidth
 		  Return Width - (2 * kPadding) - kScrollbarReserve
 		End Function
 	#tag EndMethod
@@ -1410,6 +1397,26 @@ Inherits DesktopCanvas
 		    g.DrawingColor = Color.RGB(tint.Red, tint.Green, tint.Blue, 110)
 		    g.FillRectangle(x, y, frag.Width, h)
 		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub DrawLineDecoration(g As Graphics, lineIndex As Integer, left As Double, right As Double, y As Double)
+		  // Block decorations: code backgrounds, quote bars, horizontal rules and table chrome
+		  Var h As Double = mLineBottom(lineIndex) - mLineTop(lineIndex)
+		  Select Case mLineKinds(lineIndex)
+		  Case kKindCode, kKindFence
+		    g.DrawingColor = CodeBackgroundColor
+		    g.FillRectangle(left, y, right - left, h)
+		  Case kKindQuote
+		    g.DrawingColor = MutedColor
+		    g.FillRectangle(left + 2, y, 3, h)
+		  Case kKindRule
+		    g.DrawingColor = MutedColor
+		    g.FillRectangle(left, Round(y + h / 2), right - left, 1)
+		  Case kKindTableHeader, kKindTableRow
+		    DrawTableRowChrome(g, lineIndex, left, y, h)
+		  End Select
 		End Sub
 	#tag EndMethod
 
@@ -2096,6 +2103,12 @@ Inherits DesktopCanvas
 		  If w > maxWidth Then
 		    h = h * maxWidth / w
 		    w = maxWidth
+		  End If
+		  // On paper a picture also has to fit on one page
+		  If mPrintHeight > 0 And h + (2 * kImageMargin) > mPrintHeight Then
+		    Var fitted As Double = Max(1, mPrintHeight - (2 * kImageMargin))
+		    w = w * fitted / h
+		    h = fitted
 		  End If
 		  
 		  Var n As Integer = mLines(lineIndex).Length
@@ -2881,6 +2894,69 @@ Inherits DesktopCanvas
 		End Function
 	#tag EndMethod
 
+	#tag Method, Flags = &h0, Description = 55736564206279204D61726B646F776E546578745072696E7465722E
+		Attributes( Hidden )  Function PrintBlock(g As Graphics, width As Double, firstRow As Integer, x As Double, y As Double, height As Double) As Integer
+		  // Lays the whole document out for the printer, draws the rows from firstRow on that fit into
+		  // height at x, y and returns the first row of the next block, or -1 when nothing is left.
+		  Var savedGraphics As Graphics = mPaintGraphics
+		  Var savedScroll As Double = mScrollY
+		  Var savedLine As Integer = mCurrentLine
+		  Var nextRow As Integer = -1
+		  
+		  Try
+		    mPaintGraphics = g
+		    mPrintWidth = Max(kMinimumContentWidth, width)
+		    mPrintHeight = Max(1, height)
+		    // There is no caret on paper, so every line is printed rendered
+		    mCurrentLine = -1
+		    Layout
+		    
+		    If firstRow >= 0 And firstRow <= mRows.LastIndex Then
+		      // Whole rows only: the block ends before the first row that does not fit
+		      Var blockTop As Double = mRows(firstRow).Top
+		      Var lastRow As Integer = firstRow
+		      While lastRow < mRows.LastIndex
+		        Var candidate As MDRow = mRows(lastRow + 1)
+		        If candidate.Top + candidate.Height - blockTop > height Then Exit While
+		        lastRow = lastRow + 1
+		      Wend
+		      Var blockHeight As Double = mRows(lastRow).Top + mRows(lastRow).Height - blockTop
+		      
+		      // Code backgrounds and table borders of lines that go on over the page break are cut off here
+		      Var pg As Graphics = g.Clip(x, y, mPrintWidth, Max(1, blockHeight))
+		      For i As Integer = mRows(firstRow).Line To mRows(lastRow).Line
+		        DrawLineDecoration(pg, i, 0, mPrintWidth, mLineTop(i) - blockTop)
+		      Next
+		      For r As Integer = firstRow To lastRow
+		        Var row As MDRow = mRows(r)
+		        For f As Integer = row.FirstFragment To row.LastFragment
+		          Var frag As MDFragment = mFragments(f)
+		          If (frag.Flags And kFlagImage) <> 0 Then
+		            DrawImage(pg, frag, row, 0, row.Top - blockTop, False)
+		          ElseIf (frag.Flags And kFlagHidden) = 0 Then
+		            DrawFragment(pg, frag, row, 0, row.Top - blockTop)
+		          End If
+		        Next
+		      Next
+		      
+		      nextRow = lastRow + 1
+		      If nextRow > mRows.LastIndex Or RowsAreBlank(nextRow) Then nextRow = -1
+		    End If
+		  Finally
+		    // Back to the editor's own layout and colors
+		    mPrintWidth = 0
+		    mPrintHeight = 0
+		    mCurrentLine = savedLine
+		    mPaintGraphics = savedGraphics
+		    mScrollY = savedScroll
+		    Layout
+		    Refresh(False)
+		  End Try
+		  
+		  Return nextRow
+		End Function
+	#tag EndMethod
+
 	#tag Method, Flags = &h21
 		Private Function RangeIsFree(consumed() As Boolean, start As Integer, length As Integer) As Boolean
 		  For i As Integer = Max(0, start) To Min(consumed.LastIndex, start + length - 1)
@@ -3036,6 +3112,16 @@ Inherits DesktopCanvas
 		    End If
 		  Wend
 		  Return low
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Function RowsAreBlank(firstRow As Integer) As Boolean
+		  // True when the rows from firstRow on only hold empty lines, so no page is started for them
+		  For r As Integer = firstRow To mRows.LastIndex
+		    If mLines(mRows(r).Line).Trim <> "" Then Return False
+		  Next
+		  Return True
 		End Function
 	#tag EndMethod
 
@@ -3312,6 +3398,13 @@ Inherits DesktopCanvas
 		  mClickFreeze = False
 		  If mClickTimer <> Nil Then mClickTimer.RunMode = Timer.RunModes.Off
 		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 52657475726E732061207072696E7465722074686174207072696E7473207468652072656E6465726564204D61726B646F776E20626C6F636B20627920626C6F636B2C206C696B65204465736B746F7054657874417265612E5374796C6564546578745072696E7465722E20576F726B73206F6E20657665727920706C6174666F726D2E
+		Function StyledTextPrinter(g As Graphics, width As Integer) As MarkdownTextPrinter
+		  // DesktopTextArea.StyledTextPrinter only exists on macOS; this one is drawn by MarkdownArea itself
+		  Return New MarkdownTextPrinter(Self, g, width)
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
@@ -3663,6 +3756,13 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
+		Private Function UseDarkColors() As Boolean
+		  // Printed pages are always light, whatever the appearance of the app
+		  Return Color.IsDarkMode And mPrintWidth = 0
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
 		Private Sub WordBounds(lineIndex As Integer, col As Integer, ByRef startCol As Integer, ByRef endCol As Integer)
 		  // The word at col; outside a word, the single character at col
 		  Var line As String = mLines(lineIndex)
@@ -3789,7 +3889,7 @@ Inherits DesktopCanvas
 	#tag ComputedProperty, Flags = &h21
 		#tag Getter
 			Get
-			  If Color.IsDarkMode Then Return &c4DA3FF
+			  If UseDarkColors Then Return &c4DA3FF
 			  Return &c0B62D6
 			End Get
 		#tag EndGetter
@@ -3856,7 +3956,7 @@ Inherits DesktopCanvas
 	#tag ComputedProperty, Flags = &h21
 		#tag Getter
 			Get
-			  If Color.IsDarkMode Then Return &c4A4A4A
+			  If UseDarkColors Then Return &c4A4A4A
 			  Return &cBEBEBE
 			End Get
 		#tag EndGetter
@@ -3866,7 +3966,7 @@ Inherits DesktopCanvas
 	#tag ComputedProperty, Flags = &h21
 		#tag Getter
 			Get
-			  If Color.IsDarkMode Then Return &c2C2C30
+			  If UseDarkColors Then Return &c2C2C30
 			  Return &cF2F2F4
 			End Get
 		#tag EndGetter
@@ -3876,7 +3976,7 @@ Inherits DesktopCanvas
 	#tag ComputedProperty, Flags = &h21
 		#tag Getter
 			Get
-			  If Color.IsDarkMode Then Return &cF07178
+			  If UseDarkColors Then Return &cF07178
 			  Return &cC0392B
 			End Get
 		#tag EndGetter
@@ -3887,7 +3987,7 @@ Inherits DesktopCanvas
 		#tag Getter
 			Get
 			  If mHasBackgroundColor Then Return mBackgroundColor
-			  If Color.IsDarkMode Then Return &c1E1E1E
+			  If UseDarkColors Then Return &c1E1E1E
 			  Return &cFFFFFF
 			End Get
 		#tag EndGetter
@@ -3898,6 +3998,7 @@ Inherits DesktopCanvas
 		#tag Getter
 			Get
 			  If mHasTextColor Then Return mTextColor
+			  If mPrintWidth > 0 Then Return &c000000
 			  Return Color.TextColor
 			End Get
 		#tag EndGetter
@@ -4342,6 +4443,14 @@ Inherits DesktopCanvas
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
+		Private mPrintHeight As Double
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mPrintWidth As Double
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
 		Private mReadOnly As Boolean
 	#tag EndProperty
 
@@ -4597,7 +4706,7 @@ Inherits DesktopCanvas
 		#tag Getter
 			Get
 			  If mHasFocus Then Return Color.HighlightColor
-			  If Color.IsDarkMode Then Return &c464646
+			  If UseDarkColors Then Return &c464646
 			  Return &cDCDCDC
 			End Get
 		#tag EndGetter
@@ -4772,7 +4881,7 @@ Inherits DesktopCanvas
 	#tag ComputedProperty, Flags = &h21
 		#tag Getter
 			Get
-			  If Color.IsDarkMode Then Return &c48484E
+			  If UseDarkColors Then Return &c48484E
 			  Return &cD5D5DB
 			End Get
 		#tag EndGetter
@@ -4799,7 +4908,7 @@ Inherits DesktopCanvas
 	#tag ComputedProperty, Flags = &h21
 		#tag Getter
 			Get
-			  If Color.IsDarkMode Then Return &cB85F14
+			  If UseDarkColors Then Return &cB85F14
 			  Return &cDB7A1E
 			End Get
 		#tag EndGetter
@@ -4809,7 +4918,7 @@ Inherits DesktopCanvas
 	#tag ComputedProperty, Flags = &h21
 		#tag Getter
 			Get
-			  If Color.IsDarkMode Then Return &cD9731A
+			  If UseDarkColors Then Return &cD9731A
 			  Return &cF28C28
 			End Get
 		#tag EndGetter
@@ -4819,7 +4928,7 @@ Inherits DesktopCanvas
 	#tag ComputedProperty, Flags = &h21
 		#tag Getter
 			Get
-			  If Color.IsDarkMode Then Return &c2B2B2F
+			  If UseDarkColors Then Return &c2B2B2F
 			  Return &cF7F7F9
 			End Get
 		#tag EndGetter
@@ -4879,7 +4988,7 @@ Inherits DesktopCanvas
 	#tag ComputedProperty, Flags = &h21
 		#tag Getter
 			Get
-			  If Color.IsDarkMode Then Return &c323236
+			  If UseDarkColors Then Return &c323236
 			  Return &cFCFCFD
 			End Get
 		#tag EndGetter
@@ -4889,7 +4998,7 @@ Inherits DesktopCanvas
 	#tag ComputedProperty, Flags = &h21
 		#tag Getter
 			Get
-			  If Color.IsDarkMode Then Return &c4A4A50
+			  If UseDarkColors Then Return &c4A4A50
 			  Return &cE8E8EC
 			End Get
 		#tag EndGetter
@@ -4899,7 +5008,7 @@ Inherits DesktopCanvas
 	#tag ComputedProperty, Flags = &h21
 		#tag Getter
 			Get
-			  If Color.IsDarkMode Then Return &c5C5C63
+			  If UseDarkColors Then Return &c5C5C63
 			  Return &cD6D6DC
 			End Get
 		#tag EndGetter

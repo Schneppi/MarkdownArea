@@ -42,6 +42,7 @@ The `Markdown` property always holds the raw, unchanged Markdown, so you can sav
 - A **floating formatting toolbar** that appears when the mouse comes near the top edge. It has a rendered/plain text toggle, bold, italic, strikethrough, inline code, H1–H3, bulleted/numbered/task lists, quote, link, image, code block, table and horizontal rule. Buttons that don't fit a narrow editor are left out automatically, starting from the right.
 - A **rendered/plain text toggle**, in the toolbar and from code. See [Rendered and plain text view](#rendered-and-plain-text-view).
 - An optional **read-only mode**. See [Read-only mode](#read-only-mode).
+- **Printing** of the rendered Markdown, page by page, through `StyledTextPrinter`. See [Printing](#printing).
 
 ### Look & platform
 
@@ -58,7 +59,7 @@ The `Markdown` property always holds the raw, unchanged Markdown, so you can sav
 
 ## Installation
 
-1. Copy `MarkdownArea.xojo_code` into your project (drag it into the Xojo navigator).
+1. Copy `MarkdownArea.xojo_code` into your project (drag it into the Xojo navigator). For printing, also copy `MarkdownTextPrinter.xojo_code`.
 2. Drag a `DesktopCanvas` onto a window and set its **Super** to `MarkdownArea`.
 3. Set the `Markdown` property, or let your users start typing.
 
@@ -126,7 +127,7 @@ When `ReadOnly` is set back to `False`, the full toolbar returns and appears aga
 
 ### Replacing a DesktopTextArea
 
-`MarkdownArea` has the properties, methods and events of `DesktopTextArea` (except the macOS-only `StyledTextPrinter`), so existing code and window layouts keep compiling:
+`MarkdownArea` has the properties, methods and events of `DesktopTextArea`, so existing code and window layouts keep compiling:
 
 1. Add `MarkdownArea.xojo_code` to your project.
 2. Select the `DesktopTextArea` in the window editor and change its **Super** to `MarkdownArea`. The values you set in the Inspector carry over.
@@ -135,6 +136,26 @@ When `ReadOnly` is set back to `False`, the full toolbar returns and appears aga
 Existing code that sets `Text` keeps working, and the editor shows that text as plain text, just as the TextArea did. To show it rendered instead, switch the assignment to `Markdown`, or set `RenderMarkdown = True` afterwards.
 
 Some `DesktopTextArea` members behave differently or have no effect, because Markdown keeps its formatting in the text itself. [DesktopTextArea compatibility](#desktoptextarea-compatibility) lists them all.
+
+### Printing
+
+`StyledTextPrinter(g, width)` works like the one of `DesktopTextArea`. It returns a `MarkdownTextPrinter` that prints the rendered Markdown in blocks, one per page. Unlike the TextArea's version, which only exists on macOS, it works on every platform, because `MarkdownArea` draws the text itself. Add `MarkdownTextPrinter.xojo_code` to your project together with `MarkdownArea.xojo_code`.
+
+```xojo
+Const kMargin As Integer = 36 // half an inch
+Var settings As New PrinterSetup
+Var g As Graphics = settings.ShowPrinterDialog(Self)
+If g = Nil Then Return
+
+Var printer As MarkdownTextPrinter = MarkdownArea1.StyledTextPrinter(g, g.Width - (2 * kMargin))
+Do
+  printer.DrawBlock(kMargin, kMargin, g.Height - (2 * kMargin))
+  If printer.EOF Then Exit Do
+  g.NextPage
+Loop
+```
+
+The lines are printed rendered if `RenderMarkdown` is `True`, and as plain text otherwise, with light-mode colors even when the app is in dark mode. Pages break between lines, never through one. A table row or picture that is taller than a page is cut off, but pictures are scaled down to fit a page. Code that declares the printer `As StyledTextPrinter` needs to change that type to `MarkdownTextPrinter`. The demo app prints with **File > Print…**.
 
 ### Handling links yourself
 
@@ -185,7 +206,7 @@ End Function
 
 ### Methods
 
-`AddText(value)`, `Copy`, `Cut`, `Paste`, `SelectAll`, `Undo`, `Redo`
+`AddText(value)`, `Copy`, `Cut`, `Paste`, `SelectAll`, `Undo`, `Redo`, `StyledTextPrinter(g, width)` (see [Printing](#printing))
 
 ### DesktopTextArea compatibility
 
@@ -200,6 +221,7 @@ So you can change an existing `DesktopTextArea`'s Super to `MarkdownArea` withou
 | `StyledText` | A copy of the raw Markdown. Setting it replaces `Text`; styles on it are ignored |
 | `FormattedText` | Same as `Text` |
 | `SelectionBold`, `SelectionItalic`, `SelectionPlain`, `ToggleSelectionBold`, `ToggleSelectionItalic` | Read, add or remove `**` / `*` around the selection |
+| `StyledTextPrinter(g, width)` | Returns a `MarkdownTextPrinter` instead of a `StyledTextPrinter`, with the same `DrawBlock(x, y, height)`, `EOF` and `Width`. Works on every platform |
 | `LineNumber(position)`, `CharacterPosition(line)`, `CharacterPosition(x, y)`, `InsertionPosition(x, y)` | Work on the lines of the raw text |
 | `AllowStyledText`, `AllowSpellChecking`, `FontUnit`, `Format`, `HasHorizontalScrollbar`, `HideSelection`, `HorizontalScrollPosition`, `LineHeight`, `SelectionAlignment`, `SelectionFontName`, `SelectionFontSize`, `SelectionTextColor`, `SelectionUnderline`, `ToggleSelectionUnderline`, `UnicodeMode`, `ValidationMask`, `ValidationFailed` event | Accepted so your code compiles, but have no effect |
 

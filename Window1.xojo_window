@@ -140,6 +140,26 @@ End
 	#tag EndEvent
 
 
+	#tag MenuHandler
+		Function FilePrint() As Boolean Handles FilePrint.Action
+		  // Prints the rendered Markdown with a margin of half an inch on every side
+		  Const kMargin As Integer = 36
+		  
+		  Var settings As New PrinterSetup
+		  Var g As Graphics = settings.ShowPrinterDialog(Self)
+		  If g = Nil Then Return True
+		  
+		  Var printer As MarkdownTextPrinter = Body.StyledTextPrinter(g, g.Width - (2 * kMargin))
+		  Do
+		    printer.DrawBlock(kMargin, kMargin, g.Height - (2 * kMargin))
+		    If printer.EOF Then Exit Do
+		    g.NextPage
+		  Loop
+		  Return True
+		End Function
+	#tag EndMenuHandler
+
+
 #tag EndWindowCode
 
 #tag ViewBehavior

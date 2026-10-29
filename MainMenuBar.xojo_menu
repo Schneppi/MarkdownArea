@@ -8,6 +8,18 @@ Begin Menu MainMenuBar
       AutoEnabled = True
       AutoEnable = True
       Visible = True
+      Begin DesktopMenuItem FilePrint
+         SpecialMenu = 0
+         Index = -2147483648
+         Text = "&Print…"
+         Symbol = ""
+         ShortcutKey = "P"
+         Shortcut = "Cmd+P"
+         MenuModifier = True
+         AutoEnabled = True
+         AutoEnable = True
+         Visible = True
+      End
       Begin DesktopQuitMenuItem FileQuit
          SpecialMenu = 0
          Index = -2147483648
