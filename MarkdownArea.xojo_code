@@ -435,7 +435,7 @@ Inherits DesktopCanvas
 		  If RaiseEvent MouseWheel(x, y, deltaX, deltaY) Then Return True
 		  
 		  If mContentHeight <= Height Then Return False
-		  mScrollY = mScrollY + deltaY * kWheelStep
+		  mScrollY = mScrollY + deltaY * WheelStep
 		  ClampScroll
 		  Refresh(False)
 		  Return True
@@ -3567,6 +3567,22 @@ Inherits DesktopCanvas
 		  If show Then hover = ToolbarItemAt(x, y)
 		  SetToolbarState(show, hover)
 		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Function WheelStep() As Double
+		  // Pixels scrolled per unit of MouseWheel's deltaY
+		  #If TargetWindows Then
+		    // Xojo already reports one unit per line, following the system's wheel setting (3 per notch by default)
+		    Return BaseRowHeight
+		  #ElseIf TargetLinux Then
+		    // One wheel notch is one unit; scroll three lines like most Linux applications
+		    Return 3 * BaseRowHeight
+		  #Else
+		    // macOS reports precise, already accelerated deltas
+		    Return kWheelStep
+		  #EndIf
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
