@@ -1421,12 +1421,15 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Sub DrawViewButton(g As Graphics)
-		  // The read-only view toggle: a compact button without the toolbar's frame.
+		  // The read-only view toggle: a compact button, outlined and with a soft shadow so it stands out over the text.
 		  // Its icon shows the current view: M and an eye for rendered Markdown, T and an eye for plain text.
 		  Var x As Double = mToolbarX(0)
 		  Var y As Double = kToolbarMargin
 		  Var w As Double = kViewButtonWidth
 		  Var h As Double = kViewButtonHeight
+		  
+		  g.DrawingColor = Color.RGB(0, 0, 0, 215)
+		  g.FillRoundRectangle(x, y + 1.5, w, h, 7, 7)
 		  
 		  If mToolbarHoverItem = 0 And mToolbarPressed = 0 Then
 		    g.DrawingColor = ToolbarPressedColor
@@ -1436,6 +1439,9 @@ Inherits DesktopCanvas
 		    g.DrawingColor = ToolbarBackgroundColor
 		  End If
 		  g.FillRoundRectangle(x, y, w, h, 7, 7)
+		  g.DrawingColor = TableBorderColor
+		  g.PenSize = 1
+		  g.DrawRoundRectangle(x, y, w, h, 7, 7)
 		  
 		  Var ink As Color = EffectiveTextColor
 		  g.DrawingColor = ink

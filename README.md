@@ -120,7 +120,7 @@ Setting `Markdown` or `Text` to an empty string clears the editor but keeps the 
 
 Set `ReadOnly` to `True` to show a document that users can't change. They can still select and copy text, and Cmd/Ctrl-click links.
 
-A read-only editor has no formatting toolbar, because none of its buttons could be used. Instead, a small view button is always shown in the top right corner, so users can still switch the view. It doesn't wait for the mouse to come near the top edge, and it has no frame around it. Its icon shows the view you're reading: **M** and an eye for rendered Markdown, **T** and an eye for plain text. Setting `HasToolbar` to `False` hides this button too.
+A read-only editor has no formatting toolbar, because none of its buttons could be used. Instead, a small view button is always shown in the top right corner, so users can still switch the view. It doesn't wait for the mouse to come near the top edge. A thin outline and a soft shadow keep it visible over the text. Its icon shows the view you're reading: **M** and an eye for rendered Markdown, **T** and an eye for plain text. Setting `HasToolbar` to `False` hides this button too.
 
 When `ReadOnly` is set back to `False`, the full toolbar returns and appears again when the mouse comes near the top edge.
 
