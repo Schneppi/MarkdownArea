@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <title>MarkdownArea social preview</title>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0F1A33"/>
+      <stop offset="1" stop-color="#0A2A63"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3D97FF"/>
+      <stop offset="1" stop-color="#0A4FC2"/>
+    </linearGradient>
+    <linearGradient id="caret" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFC24D"/>
+      <stop offset="1" stop-color="#F08A1C"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="1280" height="640" fill="url(#page)"/>
+  <!-- Faint raw Markdown in the background -->
+  <g font-family="Menlo, Consolas, monospace" font-size="22" fill="#FFFFFF" fill-opacity="0.07">
+    <text x="760" y="70"># Heading</text>
+    <text x="900" y="120">**bold** *italic*</text>
+    <text x="820" y="560">| Left | Center | Right |</text>
+    <text x="980" y="610">- [x] done</text>
+    <text x="40" y="610">```xojo</text>
+  </g>
+  <!-- Logo -->
+  <g transform="translate(120 160) scale(0.625)" filter="url(#shadow)">
+    <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+    <path d="M100 286V146h42l44 58 44-58h42v140h-42v-78l-44 54-44-54v78z" fill="#FFFFFF"/>
+    <path d="M310 146h40v74h34l-54 66-54-66h34z" fill="#FFFFFF"/>
+    <rect x="402" y="132" width="18" height="168" rx="9" fill="url(#caret)"/>
+    <rect x="100" y="336" width="320" height="20" rx="10" fill="#FFFFFF" fill-opacity="0.92"/>
+    <rect x="100" y="376" width="236" height="20" rx="10" fill="#FFFFFF" fill-opacity="0.55"/>
+  </g>
+  <!-- Name and tagline -->
+  <g font-family="-apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" fill="#FFFFFF">
+    <text x="510" y="290" font-size="84" font-weight="800" letter-spacing="-1">Markdown<tspan fill="#5AA8FF">Area</tspan></text>
+    <text x="512" y="350" font-size="32" fill-opacity="0.85">Live-rendering Markdown editor control for Xojo</text>
+    <text x="512" y="420" font-size="24" fill-opacity="0.6">Pure Xojo  ·  Drop-in DesktopTextArea replacement</text>
+    <text x="512" y="456" font-size="24" fill-opacity="0.6">macOS  ·  Windows  ·  Linux  ·  MIT-0</text>
+  </g>
+</svg>

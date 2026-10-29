@@ -1,3 +1,5 @@
+<p align="center"><img src="Assets/logo.svg" width="128" height="128" alt="MarkdownArea logo"></p>
+
 # MarkdownArea
 
 A live-rendering Markdown editor control for Xojo desktop apps, written in pure Xojo code. It needs no plugins, HTMLViewer or WebView.
