@@ -1226,7 +1226,7 @@ Inherits DesktopCanvas
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h0
+	#tag Method, Flags = &h0, Description = 4372656174657320616E20656D707479204D61726B646F776E417265612E
 		Sub Constructor()
 		  // Calling the overridden superclass constructor.
 		  Super.Constructor
@@ -1242,7 +1242,7 @@ Inherits DesktopCanvas
 		End Function
 	#tag EndMethod
 
-	#tag Method, Flags = &h0
+	#tag Method, Flags = &h0, Description = 436F70696573207468652073656C656374656420726177204D61726B646F776E207465787420746F2074686520636C6970626F6172642E
 		Sub Copy()
 		  If Not HasSelection Then Return
 		  
@@ -1252,7 +1252,7 @@ Inherits DesktopCanvas
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h0
+	#tag Method, Flags = &h0, Description = 436F70696573207468652073656C656374656420726177204D61726B646F776E207465787420746F2074686520636C6970626F61726420616E642072656D6F7665732069742E20446F6573206E6F7468696E67207768696C6520526561644F6E6C7920697320547275652E
 		Sub Cut()
 		  If Not HasSelection Or mReadOnly Then Return
 		  Copy
@@ -2783,7 +2783,7 @@ Inherits DesktopCanvas
 		End Function
 	#tag EndMethod
 
-	#tag Method, Flags = &h0
+	#tag Method, Flags = &h0, Description = 5265706C61636573207468652073656C656374696F6E2077697468207468652074657874206F6E2074686520636C6970626F6172642E20446F6573206E6F7468696E67207768696C6520526561644F6E6C7920697320547275652E
 		Sub Paste()
 		  If mReadOnly Then Return
 		  
@@ -2983,7 +2983,7 @@ Inherits DesktopCanvas
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h0
+	#tag Method, Flags = &h0, Description = 52656170706C69657320746865206C617374206368616E6765207468617420556E646F20746F6F6B206261636B2E
 		Sub Redo()
 		  If mRedoTexts.Count = 0 Or mReadOnly Then Return
 		  
@@ -3156,7 +3156,7 @@ Inherits DesktopCanvas
 		End Function
 	#tag EndMethod
 
-	#tag Method, Flags = &h0
+	#tag Method, Flags = &h0, Description = 53656C65637473207468652077686F6C6520746578742E
 		Sub SelectAll()
 		  mAnchorLine = 0
 		  mAnchorCol = 0
@@ -3667,7 +3667,7 @@ Inherits DesktopCanvas
 		End Function
 	#tag EndMethod
 
-	#tag Method, Flags = &h0
+	#tag Method, Flags = &h0, Description = 54616B6573206261636B20746865206C617374206368616E67652E20547970696E6720697320756E646F6E6520776F726420627920776F72642E
 		Sub Undo()
 		  If mUndoTexts.Count = 0 Or mReadOnly Then Return
 		  
@@ -3798,23 +3798,23 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564207768656E2074686520636F6E74726F6C2069732061626F757420746F20636C6F73652E
 		Event Closing()
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 41646420796F7572206F776E206974656D7320746F20626173652E2054686579206170706561722061626F7665204375742C20436F70792C20506173746520616E642053656C65637420416C6C2E2052657475726E205472756520746F2073686F77206F6E6C7920796F7572206974656D732E
 		Event ConstructContextualMenu(base As DesktopMenuItem, x As Integer, y As Integer) As Boolean
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 52616973656420666F7220636F6E7465787475616C206D656E75206974656D7320796F7520616464656420696E20436F6E737472756374436F6E7465787475616C4D656E752E2052657475726E2054727565207768656E20796F752068616E646C65642069742E
 		Event ContextualMenuItemSelected(selectedItem As DesktopMenuItem) As Boolean
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564207768656E2074686520656469746F72206C6F73657320746865206B6579626F61726420666F6375732E
 		Event FocusLost()
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564207768656E2074686520656469746F72206765747320746865206B6579626F61726420666F6375732E
 		Event FocusReceived()
 	#tag EndHook
 
@@ -3822,7 +3822,7 @@ Inherits DesktopCanvas
 		Event ImageRequested(source As String) As Picture
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564206265666F72652074686520656469746F722068616E646C65732061206B65792E2052657475726E205472756520746F2073746F702074686520656469746F722066726F6D2068616E646C696E672069742E
 		Event KeyDown(key As String) As Boolean
 	#tag EndHook
 
@@ -3830,53 +3830,129 @@ Inherits DesktopCanvas
 		Event LinkClicked(url As String) As Boolean
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564207768656E20746865206D6F75736520627574746F6E20676F657320646F776E20696E2074686520656469746F722E2052657475726E205472756520746F2068616E646C652074686520636C69636B20796F757273656C6620616E642072656365697665204D6F7573654472616720616E64204D6F75736555702E
 		Event MouseDown(x As Integer, y As Integer) As Boolean
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564207768696C6520746865206D6F757365206973206472616767656420616674657220796F752072657475726E656420547275652066726F6D204D6F757365446F776E2E
 		Event MouseDrag(x As Integer, y As Integer)
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564207768656E20746865206D6F757365206D6F76657320696E746F2074686520656469746F722E
 		Event MouseEnter()
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564207768656E20746865206D6F757365206C65617665732074686520656469746F722E
 		Event MouseExit()
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564207768656E20746865206D6F757365206D6F766573206F7665722074686520656469746F722E
 		Event MouseMove(x As Integer, y As Integer)
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564207768656E20746865206D6F75736520627574746F6E20676F657320757020616674657220796F752072657475726E656420547275652066726F6D204D6F757365446F776E2E
 		Event MouseUp(x As Integer, y As Integer)
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564206265666F72652074686520656469746F72207363726F6C6C732E2052657475726E205472756520746F2073746F702069742066726F6D207363726F6C6C696E672E
 		Event MouseWheel(x As Integer, y As Integer, deltaX As Integer, deltaY As Integer) As Boolean
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564207768656E2074686520636F6E74726F6C206973206372656174656420616E642061626F757420746F2062652073686F776E2E
 		Event Opening()
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 5261697365642061667465722074686520656469746F7220647265772069747320636F6E74656E742C20736F20796F752063616E2064726177206F6E20746F70206F662069742E2054686520746F6F6C62617220697320647261776E20616674657220746869732E
 		Event Paint(g As Graphics, areas() As Rect)
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564207768656E20746865206361726574206D6F766573206F72207468652073656C656374696F6E206368616E6765732E
 		Event SelectionChanged()
 	#tag EndHook
 
-	#tag Hook, Flags = &h0
+	#tag Hook, Flags = &h0, Description = 526169736564207768656E207468652074657874206368616E6765732C20627920747970696E67206F722066726F6D20636F64652E
 		Event TextChanged()
 	#tag EndHook
 
 	#tag Hook, Flags = &h0, Description = 4F6E6C7920666F72204465736B746F70546578744172656120636F6D7061746962696C6974792E204D61726B646F776E4172656120646F6573206E6F742075736520612076616C69646174696F6E206D61736B2C20736F2074686973206973206E65766572207261697365642E
 		Event ValidationFailed(invalidText As String, startPosition As Integer)
 	#tag EndHook
+
+
+	#tag Note, Name = HowTo
+		MarkdownArea: a live-rendering Markdown editor, written in pure Xojo.
+		
+		SETUP
+		1. Add MarkdownArea.xojo_code to your project.
+		2. Drag a DesktopCanvas onto a window and set its Super to MarkdownArea.
+		   To replace an existing DesktopTextArea, change its Super to MarkdownArea instead.
+		   The values you set in the Inspector carry over and your code keeps compiling.
+		3. Optional, for printing: also add the MarkdownPrinting module (MarkdownPrinting.xojo_code
+		   and the MarkdownPrinting folder with MarkdownTextPrinter.xojo_code).
+		
+		LOADING AND SAVING
+		The property you load the text through picks the view:
+		
+		  MarkdownArea1.Markdown = readme   // shows the text rendered as Markdown
+		  MarkdownArea1.Text = notes        // shows the text as plain text, like a DesktopTextArea
+		  MarkdownArea1.RenderMarkdown = True // switches the view, the text stays the same
+		
+		Markdown and Text always return the same raw, unchanged text, so save either one:
+		
+		  Var markdown As String = MarkdownArea1.Markdown
+		
+		Setting Markdown or Text to "" clears the editor and keeps the current view.
+		To show design-time text rendered, set Markdown in the Opening event.
+		
+		COMMON TASKS
+		  MarkdownArea1.BaseFolder = documentFile.Parent  // resolves relative image paths
+		  MarkdownArea1.AddText(EndOfLine + "- [ ] New task") // appends text at the end
+		  MarkdownArea1.ReadOnly = True        // users can select and copy, but not edit
+		  MarkdownArea1.ReadOnlyRenderToggle = False // hides the view button while ReadOnly
+		  MarkdownArea1.HasToolbar = False     // no formatting toolbar
+		  MarkdownArea1.TableAlignment = MarkdownArea.TableAlignments.Center
+		  MarkdownArea1.TableFullWidth = True  // stretches tables to the editor width
+		  MarkdownArea1.LineSpacing = 1.5
+		  MarkdownArea1.ToggleSelectionBold    // wraps the selection in ** or removes it
+		
+		EVENTS
+		LinkClicked(url) As Boolean
+		  Raised when a link is Cmd/Ctrl-clicked. Return True to handle it yourself:
+		
+		  If url.BeginsWith("app://") Then
+		    HandleInternalLink(url)
+		    Return True
+		  End If
+		
+		ImageRequested(source) As Picture
+		  Supply pictures from a database or your app's resources. Return Nil to let
+		  MarkdownArea load http(s) URLs, data: URIs and local files itself:
+		
+		  If source.BeginsWith("db:") Then Return LoadPictureFromDatabase(source.Middle(3))
+		  Return Nil
+		
+		TextChanged, SelectionChanged and the usual DesktopCanvas events work as expected.
+		
+		PRINTING (needs the MarkdownPrinting module)
+		  Const kMargin As Integer = 36
+		  Var settings As New PrinterSetup
+		  Var g As Graphics = settings.ShowPrinterDialog(Self)
+		  If g = Nil Then Return
+		
+		  Var printer As MarkdownTextPrinter = MarkdownArea1.StyledTextPrinter(g, g.Width - (2 * kMargin))
+		  Do
+		    printer.DrawBlock(kMargin, kMargin, g.Height - (2 * kMargin))
+		    If printer.EOF Then Exit Do
+		    g.NextPage
+		  Loop
+		
+		DESKTOPTEXTAREA COMPATIBILITY
+		Some DesktopTextArea members are only there so existing code compiles and have
+		no effect, because Markdown keeps its formatting in the text itself. Their
+		descriptions say "Only for DesktopTextArea compatibility".
+		
+		More details are in README.md.
+	#tag EndNote
 
 
 	#tag ComputedProperty, Flags = &h21
@@ -3897,7 +3973,7 @@ Inherits DesktopCanvas
 		AllowStyledText As Boolean = True
 	#tag EndProperty
 
-	#tag ComputedProperty, Flags = &h0
+	#tag ComputedProperty, Flags = &h0, Description = 436F6C6F722074686520656469746F722069732066696C6C65642077697468207768656E204861734261636B67726F756E64436F6C6F7220697320547275652E
 		#tag Getter
 			Get
 			  Return mBackgroundColor
@@ -3998,7 +4074,7 @@ Inherits DesktopCanvas
 		Private EffectiveTextColor As Color
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0
+	#tag ComputedProperty, Flags = &h0, Description = 466F6E7420666F722074686520746578742E20436F646520697320616C7761797320647261776E20696E2061206D6F6E6F73706163656420666F6E742E
 		#tag Getter
 			Get
 			  Return mFontName
@@ -4014,7 +4090,7 @@ Inherits DesktopCanvas
 		FontName As String
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0
+	#tag ComputedProperty, Flags = &h0, Description = 466F6E742073697A6520696E20706F696E747320666F72206E6F726D616C20746578742E2048656164696E677320616E6420636F646520617265207363616C65642066726F6D2069742E20302075736573207468652073797374656D2073697A652E
 		#tag Getter
 			Get
 			  Return mFontSize
@@ -4047,7 +4123,7 @@ Inherits DesktopCanvas
 		FormattedText As String
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0
+	#tag ComputedProperty, Flags = &h0, Description = 5768656E20547275652C2074686520656469746F722069732066696C6C65642077697468204261636B67726F756E64436F6C6F7220696E7374656164206F66207468652073797374656D2074657874206261636B67726F756E642E
 		#tag Getter
 			Get
 			  Return mHasBackgroundColor
@@ -4062,7 +4138,7 @@ Inherits DesktopCanvas
 		HasBackgroundColor As Boolean
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0
+	#tag ComputedProperty, Flags = &h0, Description = 4472617773206120626F726465722061726F756E642074686520656469746F722E
 		#tag Getter
 			Get
 			  Return mHasBorder
@@ -4588,7 +4664,7 @@ Inherits DesktopCanvas
 		Private MutedColor As Color
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0
+	#tag ComputedProperty, Flags = &h0, Description = 5768656E20547275652C2074686520746578742063616E2062652073656C656374656420616E6420636F7069656420627574206E6F74206368616E6765642E
 		#tag Getter
 			Get
 			  Return mReadOnly
@@ -4642,7 +4718,7 @@ Inherits DesktopCanvas
 		RenderMarkdown As Boolean
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0
+	#tag ComputedProperty, Flags = &h0, Description = 5468652073656C656374656420726177204D61726B646F776E20746578742E2053657474696E67206974207265706C61636573207468652073656C656374696F6E2E
 		#tag Getter
 			Get
 			  Var sl, sc, el, ec As Integer
@@ -4748,7 +4824,7 @@ Inherits DesktopCanvas
 		SelectionItalic As Boolean
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0
+	#tag ComputedProperty, Flags = &h0, Description = 4E756D626572206F6620636861726163746572732073656C656374656420696E207468652072617720746578742E2053657474696E67206974206B656570732053656C656374696F6E537461727420616E64206D6F7665732074686520656E642E
 		#tag Getter
 			Get
 			  Var sl, sc, el, ec As Integer
@@ -4787,7 +4863,7 @@ Inherits DesktopCanvas
 		SelectionPlain As Boolean
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0
+	#tag ComputedProperty, Flags = &h0, Description = 436861726163746572206F666673657420696E20746865207261772074657874207768657265207468652073656C656374696F6E207374617274732E2053657474696E67206974206D6F7665732074686520636172657420746865726520616E6420636C65617273207468652073656C656374696F6E2E
 		#tag Getter
 			Get
 			  Var sl, sc, el, ec As Integer
@@ -4961,7 +5037,7 @@ Inherits DesktopCanvas
 		TextAlignment As TextAlignments
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0
+	#tag ComputedProperty, Flags = &h0, Description = 436F6C6F72206F66206E6F726D616C20746578742E20266330303030303020287468652064656661756C74292075736573207468652073797374656D207465787420636F6C6F722C20736F206461726B206D6F646520776F726B732E
 		#tag Getter
 			Get
 			  Return EffectiveTextColor
