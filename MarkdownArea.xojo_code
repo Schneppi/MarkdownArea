@@ -676,6 +676,46 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
+		Private Sub AlignRows(g As Graphics, lineIndex As Integer, maxWidth As Double)
+		  // TextAlignment: moves each row of a laid-out line to the center or the right edge.
+		  // The spaces a row ends with (where it wrapped) don't count, so the visible text lines up.
+		  If mTextAlignment <> TextAlignments.Center And mTextAlignment <> TextAlignments.Right Then Return
+		  Var line As String = mLines(lineIndex)
+		  
+		  For r As Integer = mLineFirstRow(lineIndex) To mLineLastRow(lineIndex)
+		    Var row As MDRow = mRows(r)
+		    Var right As Double = row.StartX
+		    For f As Integer = row.FirstFragment To row.LastFragment
+		      Var frag As MDFragment = mFragments(f)
+		      If (frag.Flags And kFlagHidden) <> 0 Then Continue
+		      right = frag.X + frag.Width
+		      // Leave out trailing spaces of a text fragment
+		      If (frag.Flags And kSymbolFlags) = 0 And frag.EndCol > frag.StartCol Then
+		        Var piece As String = line.Middle(frag.StartCol, frag.EndCol - frag.StartCol)
+		        Var trimmed As String = piece.TrimRight
+		        If trimmed.Length < piece.Length Then
+		          ApplyFont(g, frag.Flags, frag.Scale)
+		          right = frag.X + g.TextWidth(trimmed)
+		        End If
+		      End If
+		    Next
+		    
+		    Var shift As Double = maxWidth - right
+		    If mTextAlignment = TextAlignments.Center Then shift = shift / 2
+		    If shift <= 0 Then Continue
+		    
+		    row.StartX = row.StartX + shift
+		    mRows(r) = row
+		    For f As Integer = row.FirstFragment To row.LastFragment
+		      Var frag As MDFragment = mFragments(f)
+		      frag.X = frag.X + shift
+		      mFragments(f) = frag
+		    Next
+		  Next
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
 		Private Sub AnalyzeBlocks()
 		  // Marks fenced code blocks: the fence lines themselves and the lines between them
 		  mBlockKinds.ResizeTo(mLines.LastIndex)
@@ -747,46 +787,6 @@ Inherits DesktopCanvas
 		    End If
 		    i = i + 1
 		  Wend
-		End Sub
-	#tag EndMethod
-
-	#tag Method, Flags = &h21
-		Private Sub AlignRows(g As Graphics, lineIndex As Integer, maxWidth As Double)
-		  // TextAlignment: moves each row of a laid-out line to the center or the right edge.
-		  // The spaces a row ends with (where it wrapped) don't count, so the visible text lines up.
-		  If mTextAlignment <> TextAlignments.Center And mTextAlignment <> TextAlignments.Right Then Return
-		  Var line As String = mLines(lineIndex)
-
-		  For r As Integer = mLineFirstRow(lineIndex) To mLineLastRow(lineIndex)
-		    Var row As MDRow = mRows(r)
-		    Var right As Double = row.StartX
-		    For f As Integer = row.FirstFragment To row.LastFragment
-		      Var frag As MDFragment = mFragments(f)
-		      If (frag.Flags And kFlagHidden) <> 0 Then Continue
-		      right = frag.X + frag.Width
-		      // Leave out trailing spaces of a text fragment
-		      If (frag.Flags And kSymbolFlags) = 0 And frag.EndCol > frag.StartCol Then
-		        Var piece As String = line.Middle(frag.StartCol, frag.EndCol - frag.StartCol)
-		        Var trimmed As String = piece.TrimRight
-		        If trimmed.Length < piece.Length Then
-		          ApplyFont(g, frag.Flags, frag.Scale)
-		          right = frag.X + g.TextWidth(trimmed)
-		        End If
-		      End If
-		    Next
-
-		    Var shift As Double = maxWidth - right
-		    If mTextAlignment = TextAlignments.Center Then shift = shift / 2
-		    If shift <= 0 Then Continue
-
-		    row.StartX = row.StartX + shift
-		    mRows(r) = row
-		    For f As Integer = row.FirstFragment To row.LastFragment
-		      Var frag As MDFragment = mFragments(f)
-		      frag.X = frag.X + shift
-		      mFragments(f) = frag
-		    Next
-		  Next
 		End Sub
 	#tag EndMethod
 
@@ -1614,7 +1614,7 @@ Inherits DesktopCanvas
 		  Var letter As String = "T"
 		  If mRenderMarkdown Then letter = "M"
 		  DrawCenteredText(g, letter, cx - 6, cy, "System", 11, True, False)
-
+		  
 		  // Eye: an almond outline with a pupil
 		  Var ex As Double = cx + 5
 		  g.PenSize = 1.25
@@ -1877,7 +1877,7 @@ Inherits DesktopCanvas
 		    prefix = "!["
 		    placeholder = "Image"
 		  End If
-
+		  
 		  Var sl, sc, el, ec As Integer
 		  GetSelection(sl, sc, el, ec)
 		  If sl = el And sc < ec Then
@@ -4258,6 +4258,10 @@ Inherits DesktopCanvas
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
+		Private mLayoutMeasuredInPaint As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
 		Private mLayoutWidth As Integer = -1
 	#tag EndProperty
 
@@ -4302,18 +4306,6 @@ Inherits DesktopCanvas
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
-		Private mLayoutMeasuredInPaint As Boolean
-	#tag EndProperty
-
-	#tag Property, Flags = &h21
-		Private mPaintGraphics As Graphics
-	#tag EndProperty
-
-	#tag Property, Flags = &h21
-		Private mTextAlignment As TextAlignments
-	#tag EndProperty
-
-	#tag Property, Flags = &h21
 		Private mMouseHandledByApp As Boolean
 	#tag EndProperty
 
@@ -4343,6 +4335,10 @@ Inherits DesktopCanvas
 
 	#tag Property, Flags = &h21
 		Private mOriginStartLine As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mPaintGraphics As Graphics
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
@@ -4402,10 +4398,6 @@ Inherits DesktopCanvas
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
-		Private mTableFullWidth As Boolean
-	#tag EndProperty
-
-	#tag Property, Flags = &h21
 		Private mTableEnd() As Integer
 	#tag EndProperty
 
@@ -4414,7 +4406,15 @@ Inherits DesktopCanvas
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
+		Private mTableFullWidth As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
 		Private mTableStart() As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mTextAlignment As TextAlignments
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
@@ -4769,6 +4769,16 @@ Inherits DesktopCanvas
 		TableAlignment As TableAlignments
 	#tag EndComputedProperty
 
+	#tag ComputedProperty, Flags = &h21
+		#tag Getter
+			Get
+			  If Color.IsDarkMode Then Return &c48484E
+			  Return &cD5D5DB
+			End Get
+		#tag EndGetter
+		Private TableBorderColor As Color
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 5472756520737472657463686573206576657279207461626C6520746F207468652066756C6C207769647468206F662074686520656469746F723B2046616C7365206B65657073207461626C6573206173206E6172726F7720617320746865697220636F6E74656E742E
 		#tag Getter
 			Get
@@ -4784,16 +4794,6 @@ Inherits DesktopCanvas
 			End Set
 		#tag EndSetter
 		TableFullWidth As Boolean
-	#tag EndComputedProperty
-
-	#tag ComputedProperty, Flags = &h21
-		#tag Getter
-			Get
-			  If Color.IsDarkMode Then Return &c48484E
-			  Return &cD5D5DB
-			End Get
-		#tag EndGetter
-		Private TableBorderColor As Color
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h21
@@ -5123,16 +5123,16 @@ Inherits DesktopCanvas
 		#Tag Instance, Platform = Any, Language = de, Definition  = \"Trennlinie"
 	#tag EndConstant
 
+	#tag Constant, Name = kLangImage, Type = String, Dynamic = True, Default = \"Image", Scope = Private
+		#Tag Instance, Platform = Any, Language = de, Definition  = \"Bild"
+	#tag EndConstant
+
 	#tag Constant, Name = kLangInlineCode, Type = String, Dynamic = True, Default = \"Inline code", Scope = Private
 		#Tag Instance, Platform = Any, Language = de, Definition  = \"Inline-Code"
 	#tag EndConstant
 
 	#tag Constant, Name = kLangItalic, Type = String, Dynamic = True, Default = \"Italic", Scope = Private
 		#Tag Instance, Platform = Any, Language = de, Definition  = \"Kursiv"
-	#tag EndConstant
-
-	#tag Constant, Name = kLangImage, Type = String, Dynamic = True, Default = \"Image", Scope = Private
-		#Tag Instance, Platform = Any, Language = de, Definition  = \"Bild"
 	#tag EndConstant
 
 	#tag Constant, Name = kLangLink, Type = String, Dynamic = True, Default = \"Link", Scope = Private

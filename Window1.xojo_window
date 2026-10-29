@@ -63,7 +63,8 @@ Begin DesktopWindow Window1
       Markdown        =   ""
       MaximumCharactersAllowed=   0
       MultiLine       =   True
-      ReadOnly        =   False
+      ReadOnly        =   True
+      ReadOnlyRenderToggle=   True
       RenderMarkdown  =   True
       Scope           =   2
       SelectedText    =   ""
@@ -79,10 +80,11 @@ Begin DesktopWindow Window1
       SelectionUnderline=   False
       TabIndex        =   2
       TableAlignment  =   0
+      TableFullWidth  =   True
       TabPanelIndex   =   0
       TabStop         =   True
       Text            =   ""
-      TextAlignment   =   0
+      TextAlignment   =   2
       TextColor       =   &c00000000
       ToolbarRevealDistance=   20
       Tooltip         =   ""
@@ -132,7 +134,8 @@ End
 		  sample.Add("```")
 		  sample.Add("Var greeting As String = ""Hello""")
 		  sample.Add("```")
-		  Body.Markdown = String.FromArray(sample, EndOfLine)
+		  Body.Markdown = String.FromArray( sample, EndOfLine )
+		  
 		End Sub
 	#tag EndEvent
 
