@@ -561,7 +561,7 @@ Inherits DesktopCanvas
 		  // The application can draw on top of the editor
 		  RaiseEvent Paint(g, areas)
 		  
-		  If mToolbarVisible Then DrawToolbar(g)
+		  If mToolbarVisible And ToolbarAllowed Then DrawToolbar(g)
 		End Sub
 	#tag EndEvent
 
@@ -905,6 +905,12 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Sub ApplyToolbarAction(action As Integer)
+		  If action = kToolPlainText Then
+		    RenderMarkdown = Not mRenderMarkdown
+		    // The button's tooltip names the other view now
+		    If mToolbarTooltipActive Then Self.Tooltip = ToolbarTooltip(kToolPlainText)
+		    Return
+		  End If
 		  If mReadOnly Then Return
 		  Select Case action
 		  Case kToolBold
@@ -1398,6 +1404,10 @@ Inherits DesktopCanvas
 		        g.DrawingColor = ToolbarHoverColor
 		      End If
 		      g.FillRoundRectangle(x, top + 3, kToolbarButtonWidth, h - 6, 7, 7)
+		    ElseIf items(i) = kToolPlainText And Not mRenderMarkdown Then
+		      // The view toggle stays pressed while the plain text is shown
+		      g.DrawingColor = ToolbarPressedColor
+		      g.FillRoundRectangle(x, top + 3, kToolbarButtonWidth, h - 6, 7, 7)
 		    End If
 		    DrawToolbarIcon(g, items(i), x + kToolbarButtonWidth / 2, top + h / 2)
 		  Next
@@ -1459,6 +1469,13 @@ Inherits DesktopCanvas
 		    g.FillRectangle(cx - 7.5, cy - 2, 15, 1)
 		    g.FillRectangle(cx - 7.5, cy + 2, 15, 1)
 		    g.FillRectangle(cx - 0.5, cy - 6, 1, 12)
+		  Case kToolPlainText
+		    g.PenSize = 1.25
+		    g.DrawRoundRectangle(cx - 9, cy - 6, 18, 12, 3, 3)
+		    DrawCenteredText(g, "M", cx - 3, cy, "System", 8, True, False)
+		    g.FillRectangle(cx + 4, cy - 3, 1.5, 4)
+		    g.DrawLine(cx + 2.25, cy + 0.5, cx + 4.75, cy + 3)
+		    g.DrawLine(cx + 7.25, cy + 0.5, cx + 4.75, cy + 3)
 		  Case kToolRule
 		    g.FillRectangle(cx - 8, cy - 0.75, 16, 1.5)
 		    g.FillRectangle(cx - 8, cy - 5, 1.5, 3)
@@ -3215,8 +3232,15 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
+		Private Function ToolbarAllowed() As Boolean
+		  // The toolbar only edits, so it never shows while the editor is read-only
+		  Return mHasToolbar And Not mReadOnly
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
 		Private Function ToolbarContains(x As Integer, y As Integer) As Boolean
-		  If Not mHasToolbar Then Return False
+		  If Not ToolbarAllowed Then Return False
 		  LayoutToolbar
 		  Return mToolbarVisibleCount > 0 And x >= mToolbarLeft And x < mToolbarLeft + mToolbarWidth And y >= kToolbarMargin And y < kToolbarMargin + kToolbarHeight
 		End Function
@@ -3238,7 +3262,8 @@ Inherits DesktopCanvas
 		Private Function ToolbarItems() As Integer()
 		  // Toolbar buttons in order; kToolSeparator draws a divider between groups
 		  If mToolbarItems.Count = 0 Then
-		    mToolbarItems = Array(kToolBold, kToolItalic, kToolStrike, kToolCode, kToolSeparator, _
+		    mToolbarItems = Array(kToolPlainText, kToolSeparator, _
+		    kToolBold, kToolItalic, kToolStrike, kToolCode, kToolSeparator, _
 		    kToolH1, kToolH2, kToolH3, kToolSeparator, _
 		    kToolBullet, kToolNumbered, kToolTask, kToolQuote, kToolSeparator, _
 		    kToolLink, kToolCodeBlock, kToolTable, kToolRule)
@@ -3287,6 +3312,9 @@ Inherits DesktopCanvas
 		    Return kLangTable
 		  Case kToolRule
 		    Return kLangHorizontalRule
+		  Case kToolPlainText
+		    If mRenderMarkdown Then Return kLangShowPlainText
+		    Return kLangShowFormattedText
 		  End Select
 		  Return ""
 		End Function
@@ -3341,7 +3369,7 @@ Inherits DesktopCanvas
 		  // and stays while the mouse is on it
 		  If mToolbarPressed <> -1 Then Return
 		  Var inside As Boolean = x >= 0 And x < Width And y >= 0 And y < Height
-		  Var show As Boolean = mHasToolbar And Not mMouseSelecting And inside And (y <= mToolbarRevealDistance Or (mToolbarVisible And ToolbarContains(x, y)))
+		  Var show As Boolean = ToolbarAllowed And Not mMouseSelecting And inside And (y <= mToolbarRevealDistance Or (mToolbarVisible And ToolbarContains(x, y)))
 		  Var hover As Integer = -1
 		  If show Then hover = ToolbarItemAt(x, y)
 		  SetToolbarState(show, hover)
@@ -4084,6 +4112,11 @@ Inherits DesktopCanvas
 		#tag Setter
 			Set
 			  mReadOnly = value
+			  // The toolbar only edits, so a read-only editor never shows it
+			  If value Then
+			    mToolbarPressed = -1
+			    SetToolbarState(False, -1)
+			  End If
 			  Refresh(False)
 			End Set
 		#tag EndSetter
@@ -4824,6 +4857,14 @@ Inherits DesktopCanvas
 		#Tag Instance, Platform = Any, Language = de, Definition  = \"Durchgestrichen"
 	#tag EndConstant
 
+	#tag Constant, Name = kLangShowFormattedText, Type = String, Dynamic = True, Default = \"Show Formatted Text", Scope = Private
+		#Tag Instance, Platform = Any, Language = de, Definition  = \"Formatiert anzeigen"
+	#tag EndConstant
+
+	#tag Constant, Name = kLangShowPlainText, Type = String, Dynamic = True, Default = \"Show Plain Text", Scope = Private
+		#Tag Instance, Platform = Any, Language = de, Definition  = \"Als Klartext anzeigen"
+	#tag EndConstant
+
 	#tag Constant, Name = kLangTable, Type = String, Dynamic = True, Default = \"Table", Scope = Private
 		#Tag Instance, Platform = Any, Language = de, Definition  = \"Tabelle"
 	#tag EndConstant
@@ -4923,6 +4964,9 @@ Inherits DesktopCanvas
 	#tag EndConstant
 
 	#tag Constant, Name = kToolNumbered, Type = Double, Dynamic = False, Default = \"9", Scope = Private
+	#tag EndConstant
+
+	#tag Constant, Name = kToolPlainText, Type = Double, Dynamic = False, Default = \"16", Scope = Private
 	#tag EndConstant
 
 	#tag Constant, Name = kToolQuote, Type = Double, Dynamic = False, Default = \"11", Scope = Private
