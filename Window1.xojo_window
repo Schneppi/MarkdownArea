@@ -63,7 +63,7 @@ Begin DesktopWindow Window1
       Markdown        =   ""
       MaximumCharactersAllowed=   0
       MultiLine       =   True
-      ReadOnly        =   True
+      ReadOnly        =   False
       ReadOnlyRenderToggle=   True
       RenderMarkdown  =   True
       Scope           =   2
@@ -80,11 +80,11 @@ Begin DesktopWindow Window1
       SelectionUnderline=   False
       TabIndex        =   2
       TableAlignment  =   0
-      TableFullWidth  =   True
+      TableFullWidth  =   False
       TabPanelIndex   =   0
       TabStop         =   True
       Text            =   ""
-      TextAlignment   =   2
+      TextAlignment   =   0
       TextColor       =   &c00000000
       ToolbarRevealDistance=   20
       Tooltip         =   ""
