@@ -1208,6 +1208,15 @@ Inherits DesktopCanvas
 		    For c As Integer = 0 To count - 1
 		      If widths(c) > fair Then widths(c) = Max(kMinimumColumnWidth, Floor(widths(c) * flexSpace / flexTotal))
 		    Next
+		  ElseIf mTableFullWidth And total < maxWidth Then
+		    // TableFullWidth: the columns share the spare room in proportion to their size;
+		    // the last one takes what rounding leaves, so the table ends exactly at the right edge
+		    Var used As Double
+		    For c As Integer = 0 To count - 2
+		      widths(c) = Floor(widths(c) * maxWidth / total)
+		      used = used + widths(c)
+		    Next
+		    widths(count - 1) = Floor(maxWidth) - used
 		  End If
 		  
 		  // Tables narrower than the editor are placed according to TableAlignment
@@ -4387,6 +4396,10 @@ Inherits DesktopCanvas
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
+		Private mTableFullWidth As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
 		Private mTableEnd() As Integer
 	#tag EndProperty
 
@@ -4728,6 +4741,23 @@ Inherits DesktopCanvas
 			End Set
 		#tag EndSetter
 		TableAlignment As TableAlignments
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 5472756520737472657463686573206576657279207461626C6520746F207468652066756C6C207769647468206F662074686520656469746F723B2046616C7365206B65657073207461626C6573206173206E6172726F7720617320746865697220636F6E74656E742E
+		#tag Getter
+			Get
+			  Return mTableFullWidth
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  If value = mTableFullWidth Then Return
+			  mTableFullWidth = value
+			  mLayoutDirty = True
+			  Refresh(False)
+			End Set
+		#tag EndSetter
+		TableFullWidth As Boolean
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h21
@@ -5555,6 +5585,14 @@ Inherits DesktopCanvas
 				"1 - Center"
 				"2 - Right"
 			#tag EndEnumValues
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="TableFullWidth"
+			Visible=true
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="HasToolbar"

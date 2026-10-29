@@ -174,6 +174,7 @@ End Function
 | `ToolbarRevealDistance` | Integer | Distance in points from the top edge within which the toolbar appears |
 | `BaseFolder` | FolderItem | Folder that relative image and link paths are resolved against |
 | `TableAlignment` | TableAlignments | Places tables narrower than the editor on the left, center or right |
+| `TableFullWidth` | Boolean | `True` stretches every table to the full editor width, its columns widened in proportion. `False` (the default) keeps tables as narrow as their content |
 | `FontName`, `FontSize` | String, Single | Base font. `System` / `0` use the system defaults |
 | `LineSpacing` | Double | Line height as a factor of the font's text height (default `1.3`) |
 | `TextColor`, `BackgroundColor`, `HasBackgroundColor` | Color, Color, Boolean | Colors; defaults follow light/dark mode |
