@@ -59,7 +59,7 @@ The `Markdown` property always holds the raw, unchanged Markdown, so you can sav
 
 ## Installation
 
-1. Copy `MarkdownArea.xojo_code` into your project (drag it into the Xojo navigator). For printing, also copy `MarkdownTextPrinter.xojo_code`.
+1. Copy `MarkdownArea.xojo_code` into your project (drag it into the Xojo navigator). For printing, also add the optional `MarkdownPrinting` module (see [Printing](#printing)).
 2. Drag a `DesktopCanvas` onto a window and set its **Super** to `MarkdownArea`.
 3. Set the `Markdown` property, or let your users start typing.
 
@@ -139,7 +139,9 @@ Some `DesktopTextArea` members behave differently or have no effect, because Mar
 
 ### Printing
 
-`StyledTextPrinter(g, width)` works like the one of `DesktopTextArea`. It returns a `MarkdownTextPrinter` that prints the rendered Markdown in blocks, one per page. Unlike the TextArea's version, which only exists on macOS, it works on every platform, because `MarkdownArea` draws the text itself. Add `MarkdownTextPrinter.xojo_code` to your project together with `MarkdownArea.xojo_code`.
+`StyledTextPrinter(g, width)` works like the one of `DesktopTextArea`. It returns a `MarkdownTextPrinter` that prints the rendered Markdown in blocks, one per page. Unlike the TextArea's version, which only exists on macOS, it works on every platform, because `MarkdownArea` draws the text itself.
+
+Printing is optional. `StyledTextPrinter` and `MarkdownTextPrinter` live in the `MarkdownPrinting` module (`MarkdownPrinting.xojo_code` and the `MarkdownPrinting` folder), and `MarkdownArea` doesn't refer to them, so a project without the module compiles fine. To print, drag the module from the demo project into yours in the Xojo IDE, or copy `MarkdownPrinting.xojo_code` and the `MarkdownPrinting` folder.
 
 ```xojo
 Const kMargin As Integer = 36 // half an inch
@@ -206,7 +208,7 @@ End Function
 
 ### Methods
 
-`AddText(value)`, `Copy`, `Cut`, `Paste`, `SelectAll`, `Undo`, `Redo`, `StyledTextPrinter(g, width)` (see [Printing](#printing))
+`AddText(value)`, `Copy`, `Cut`, `Paste`, `SelectAll`, `Undo`, `Redo`, and `StyledTextPrinter(g, width)` when the optional `MarkdownPrinting` module is in the project (see [Printing](#printing))
 
 ### DesktopTextArea compatibility
 
@@ -221,7 +223,7 @@ So you can change an existing `DesktopTextArea`'s Super to `MarkdownArea` withou
 | `StyledText` | A copy of the raw Markdown. Setting it replaces `Text`; styles on it are ignored |
 | `FormattedText` | Same as `Text` |
 | `SelectionBold`, `SelectionItalic`, `SelectionPlain`, `ToggleSelectionBold`, `ToggleSelectionItalic` | Read, add or remove `**` / `*` around the selection |
-| `StyledTextPrinter(g, width)` | Returns a `MarkdownTextPrinter` instead of a `StyledTextPrinter`, with the same `DrawBlock(x, y, height)`, `EOF` and `Width`. Works on every platform |
+| `StyledTextPrinter(g, width)` | Returns a `MarkdownTextPrinter` instead of a `StyledTextPrinter`, with the same `DrawBlock(x, y, height)`, `EOF` and `Width`. Works on every platform, and needs the optional `MarkdownPrinting` module |
 | `LineNumber(position)`, `CharacterPosition(line)`, `CharacterPosition(x, y)`, `InsertionPosition(x, y)` | Work on the lines of the raw text |
 | `AllowStyledText`, `AllowSpellChecking`, `FontUnit`, `Format`, `HasHorizontalScrollbar`, `HideSelection`, `HorizontalScrollPosition`, `LineHeight`, `SelectionAlignment`, `SelectionFontName`, `SelectionFontSize`, `SelectionTextColor`, `SelectionUnderline`, `ToggleSelectionUnderline`, `UnicodeMode`, `ValidationMask`, `ValidationFailed` event | Accepted so your code compiles, but have no effect |
 

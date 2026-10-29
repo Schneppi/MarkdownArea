@@ -1,5 +1,5 @@
 #tag Class
-Protected Class MarkdownTextPrinter
+Class MarkdownTextPrinter
 	#tag Method, Flags = &h0
 		Sub Constructor(area As MarkdownArea, g As Graphics, width As Double)
 		  mArea = area

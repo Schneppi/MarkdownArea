@@ -3400,13 +3400,6 @@ Inherits DesktopCanvas
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h0, Description = 52657475726E732061207072696E7465722074686174207072696E7473207468652072656E6465726564204D61726B646F776E20626C6F636B20627920626C6F636B2C206C696B65204465736B746F7054657874417265612E5374796C6564546578745072696E7465722E20576F726B73206F6E20657665727920706C6174666F726D2E
-		Function StyledTextPrinter(g As Graphics, width As Integer) As MarkdownTextPrinter
-		  // DesktopTextArea.StyledTextPrinter only exists on macOS; this one is drawn by MarkdownArea itself
-		  Return New MarkdownTextPrinter(Self, g, width)
-		End Function
-	#tag EndMethod
-
 	#tag Method, Flags = &h21
 		Private Function SymbolWidth(g As Graphics, flags As Integer, scale As Double) As Double
 		  // Width of a drawn replacement for list syntax: a bullet for "-", a checkbox for "[ ]"
