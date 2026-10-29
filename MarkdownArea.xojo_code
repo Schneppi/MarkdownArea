@@ -89,7 +89,17 @@ Inherits DesktopCanvas
 	#tag Event
 		Sub FocusReceived()
 		  mHasFocus = True
-		  UpdateCurrentLine
+		  // A click into the editor raises FocusReceived before MouseDown (seen inside a DesktopContainer).
+		  // Showing the caret line raw right away would move the text before MouseDown looks up the clicked
+		  // position, so the click would land on a line above or below. Freeze the layout like after a click;
+		  // MouseDown takes the freeze over, and focus from the keyboard ends it shortly (see ClickTimerAction).
+		  If mClickTimer <> Nil Then
+		    mClickFreeze = True
+		    mClickTimer.Period = kFocusFreezePeriod
+		    mClickTimer.RunMode = Timer.RunModes.Single
+		  Else
+		    UpdateCurrentLine
+		  End If
 		  ResetBlink
 		  Refresh(False)
 		  RaiseEvent FocusReceived
@@ -5224,6 +5234,9 @@ Inherits DesktopCanvas
 	#tag EndConstant
 
 	#tag Constant, Name = kFlagTaskOpen, Type = Double, Dynamic = False, Default = \"256", Scope = Private
+	#tag EndConstant
+
+	#tag Constant, Name = kFocusFreezePeriod, Type = Double, Dynamic = False, Default = \"100", Scope = Private
 	#tag EndConstant
 
 	#tag Constant, Name = kHoverPeriod, Type = Double, Dynamic = False, Default = \"100", Scope = Private
