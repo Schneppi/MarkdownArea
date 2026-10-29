@@ -120,7 +120,7 @@ Setting `Markdown` or `Text` to an empty string clears the editor but keeps the 
 
 Set `ReadOnly` to `True` to show a document that users can't change. They can still select and copy text, and Cmd/Ctrl-click links.
 
-A read-only editor has no formatting toolbar, because none of its buttons could be used. Instead, a small view button appears in the top right corner while the mouse is over the editor, so users can still switch the view. It doesn't wait for the mouse to come near the top edge, and it disappears when the mouse leaves the editor. A thin outline and a soft shadow keep it visible over the text. Its icon shows the view you're reading: **M** and an eye for rendered Markdown, **T** and an eye for plain text. Setting `HasToolbar` to `False` hides this button too.
+A read-only editor has no formatting toolbar, because none of its buttons could be used. Instead, a small view button appears in the top right corner while the mouse is over the editor, so users can still switch the view. It doesn't wait for the mouse to come near the top edge, and it disappears when the mouse leaves the editor. A thin outline and a soft shadow keep it visible over the text. Its icon shows the view you're reading: **M** and an eye for rendered Markdown, **T** and an eye for plain text. To hide this button, set `ReadOnlyRenderToggle` to `False`. Setting `HasToolbar` to `False` hides it too.
 
 When `ReadOnly` is set back to `False`, the full toolbar returns and appears again when the mouse comes near the top edge.
 
@@ -169,6 +169,7 @@ End Function
 | `Text` | String | The same raw text. Setting a non-empty string shows it as plain text |
 | `RenderMarkdown` | Boolean | `True` shows the text rendered, `False` (the default) as plain text. The toolbar toggle switches it too |
 | `ReadOnly` | Boolean | Prevents editing; selection and copying still work. Replaces the toolbar with a small view button in the top right corner, shown while the mouse is over the editor |
+| `ReadOnlyRenderToggle` | Boolean | Shows the view button while `ReadOnly` is `True` (default `True`). Set it to `False` so readers can't switch the view |
 | `TextAlignment` | TextAlignments | Aligns the text left, centered or right, in both views. Code blocks, tables and images keep their own alignment |
 | `HasToolbar` | Boolean | Shows the formatting toolbar when the mouse comes near the top edge, or the view toggle while `ReadOnly` is `True` |
 | `ToolbarRevealDistance` | Integer | Distance in points from the top edge within which the toolbar appears |

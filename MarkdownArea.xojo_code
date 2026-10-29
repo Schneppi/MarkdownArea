@@ -3461,7 +3461,9 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Function ToolbarAllowed() As Boolean
-		  // While read-only, the toolbar is reduced to the view toggle (see ToolbarItems)
+		  // While read-only, the toolbar is reduced to the view toggle (see ToolbarItems),
+		  // shown only when ReadOnlyRenderToggle allows it
+		  If mReadOnly And Not mReadOnlyRenderToggle Then Return False
 		  Return mHasToolbar
 		End Function
 	#tag EndMethod
@@ -4348,6 +4350,10 @@ Inherits DesktopCanvas
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
+		Private mReadOnlyRenderToggle As Boolean = True
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
 		Private mRedoOffsets() As Integer
 	#tag EndProperty
 
@@ -4496,6 +4502,26 @@ Inherits DesktopCanvas
 			End Set
 		#tag EndSetter
 		ReadOnly As Boolean
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 53686F77732074686520736D616C6C204D61726B646F776E2F706C61696E2074657874207669657720627574746F6E20696E2074686520746F7020726967687420636F726E6572207768696C6520526561644F6E6C7920697320547275652E204E6565647320486173546F6F6C6261722E
+		#tag Getter
+			Get
+			  Return mReadOnlyRenderToggle
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  If value = mReadOnlyRenderToggle Then Return
+			  mReadOnlyRenderToggle = value
+			  If mReadOnly Then
+			    mToolbarPressed = -1
+			    SetToolbarState(False, -1)
+			    Refresh(False)
+			  End If
+			End Set
+		#tag EndSetter
+		ReadOnlyRenderToggle As Boolean
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0, Description = 5768656E2046616C73652C2074686520746578742069732073686F776E206173207261772C20756E72656E6465726564204D61726B646F776E2E
@@ -5514,6 +5540,14 @@ Inherits DesktopCanvas
 			Visible=true
 			Group="Behavior"
 			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="ReadOnlyRenderToggle"
+			Visible=true
+			Group="Behavior"
+			InitialValue="True"
 			Type="Boolean"
 			EditorType=""
 		#tag EndViewProperty
