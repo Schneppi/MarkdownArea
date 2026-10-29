@@ -363,8 +363,7 @@ Inherits DesktopCanvas
 	#tag Event
 		Sub MouseExit()
 		  If mHoverTimer <> Nil Then mHoverTimer.RunMode = Timer.RunModes.Off
-		  // The read-only view toggle stays visible
-		  If mToolbarPressed < 0 Then SetToolbarState(mReadOnly And ToolbarAllowed, -1)
+		  If mToolbarPressed < 0 Then SetToolbarState(False, -1)
 		  SetCursorKind(kCursorText)
 		  RaiseEvent MouseExit
 		End Sub
@@ -3470,10 +3469,10 @@ Inherits DesktopCanvas
 		  If mToolbarPressed <> -1 Then Return
 		  Var inside As Boolean = x >= 0 And x < Width And y >= 0 And y < Height
 		  If mReadOnly Then
-		    // The read-only view toggle is always shown, not only near the top edge
+		    // The read-only view toggle shows while the mouse is anywhere over the editor, not only near the top edge
 		    Var hoverItem As Integer = -1
 		    If inside Then hoverItem = ToolbarItemAt(x, y)
-		    SetToolbarState(ToolbarAllowed, hoverItem)
+		    SetToolbarState(ToolbarAllowed And inside, hoverItem)
 		    Return
 		  End If
 		  Var show As Boolean = ToolbarAllowed And Not mMouseSelecting And inside And (y <= mToolbarRevealDistance Or (mToolbarVisible And ToolbarContains(x, y)))
@@ -3834,7 +3833,7 @@ Inherits DesktopCanvas
 		#tag Setter
 			Set
 			  mHasToolbar = value
-			  SetToolbarState(value And mReadOnly, -1)
+			  If Not value Then SetToolbarState(False, -1)
 			  Refresh(False)
 			End Set
 		#tag EndSetter
@@ -4219,9 +4218,9 @@ Inherits DesktopCanvas
 		#tag Setter
 			Set
 			  mReadOnly = value
-			  // A read-only editor always shows the view toggle instead of the editing toolbar
+			  // A read-only editor shows only the view toggle, once the mouse moves over it (see UpdateToolbarHover)
 			  mToolbarPressed = -1
-			  SetToolbarState(value And mHasToolbar, -1)
+			  SetToolbarState(False, -1)
 			  Refresh(False)
 			End Set
 		#tag EndSetter
