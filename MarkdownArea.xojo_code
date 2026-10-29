@@ -3759,40 +3759,6 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
-		Private Function ReadOnlyBackgroundColor() As Color
-		  // A read-only TextArea sits on the system fill color. On macOS Color.FillColor is the same white
-		  // as an editable text view, so the light gray NSColor.underPageBackgroundColor is used instead.
-		  #If TargetMacOS Then
-		    Declare Function NSClassFromString Lib "Foundation" (className As CFStringRef) As Ptr
-		    Declare Function sharedApplication Lib "AppKit" Selector "sharedApplication" (classRef As Ptr) As Ptr
-		    Declare Function effectiveAppearance Lib "AppKit" Selector "effectiveAppearance" (app As Ptr) As Ptr
-		    Declare Function currentAppearance Lib "AppKit" Selector "currentAppearance" (classRef As Ptr) As Ptr
-		    Declare Sub setCurrentAppearance Lib "AppKit" Selector "setCurrentAppearance:" (classRef As Ptr, appearance As Ptr)
-		    Declare Function underPageBackgroundColor Lib "AppKit" Selector "underPageBackgroundColor" (classRef As Ptr) As Ptr
-		    Declare Function sRGBColorSpace Lib "AppKit" Selector "sRGBColorSpace" (classRef As Ptr) As Ptr
-		    Declare Function colorUsingColorSpace Lib "AppKit" Selector "colorUsingColorSpace:" (colorRef As Ptr, space As Ptr) As Ptr
-		    Declare Function redComponent Lib "AppKit" Selector "redComponent" (colorRef As Ptr) As CGFloat
-		    Declare Function greenComponent Lib "AppKit" Selector "greenComponent" (colorRef As Ptr) As CGFloat
-		    Declare Function blueComponent Lib "AppKit" Selector "blueComponent" (colorRef As Ptr) As CGFloat
-
-		    // The dynamic system color resolves against the current appearance, so make that the app's appearance
-		    Var appearanceClass As Ptr = NSClassFromString("NSAppearance")
-		    Var previous As Ptr = currentAppearance(appearanceClass)
-		    setCurrentAppearance(appearanceClass, effectiveAppearance(sharedApplication(NSClassFromString("NSApplication"))))
-		    Var rgb As Ptr = colorUsingColorSpace(underPageBackgroundColor(NSClassFromString("NSColor")), sRGBColorSpace(NSClassFromString("NSColorSpace")))
-		    Var result As Color = Color.FillColor
-		    If rgb <> Nil Then
-		      result = Color.RGB(Round(redComponent(rgb) * 255), Round(greenComponent(rgb) * 255), Round(blueComponent(rgb) * 255))
-		    End If
-		    setCurrentAppearance(appearanceClass, previous)
-		    Return result
-		  #Else
-		    Return Color.FillColor
-		  #EndIf
-		End Function
-	#tag EndMethod
-
-	#tag Method, Flags = &h21
 		Private Function UseDarkColors() As Boolean
 		  // Printed pages are always light, whatever the appearance of the app
 		  Return Color.IsDarkMode And mPrintWidth = 0
@@ -4100,8 +4066,8 @@ Inherits DesktopCanvas
 		#tag Getter
 			Get
 			  If mHasBackgroundColor Then Return mBackgroundColor
-			  // Like a read-only TextArea, a read-only editor sits on a fill color, but printed pages stay white
-			  If mReadOnly And mPrintWidth = 0 Then Return ReadOnlyBackgroundColor
+			  // Like a read-only TextArea, a read-only editor sits on the window's fill color, but printed pages stay white
+			  If mReadOnly And mPrintWidth = 0 Then Return Color.FillColor
 			  If UseDarkColors Then Return &c1E1E1E
 			  Return &cFFFFFF
 			End Get
