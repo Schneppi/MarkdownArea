@@ -4066,6 +4066,8 @@ Inherits DesktopCanvas
 		#tag Getter
 			Get
 			  If mHasBackgroundColor Then Return mBackgroundColor
+			  // Like a read-only TextArea, a read-only editor sits on the window's fill color, but printed pages stay white
+			  If mReadOnly And mPrintWidth = 0 Then Return Color.FillColor
 			  If UseDarkColors Then Return &c1E1E1E
 			  Return &cFFFFFF
 			End Get
