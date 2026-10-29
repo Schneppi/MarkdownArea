@@ -39,7 +39,7 @@ The `Markdown` and `Text` properties both hold the raw, unchanged Markdown, so y
 - Undo/Redo with up to 200 steps, typing grouped into sensible steps
 - Cut, Copy, Paste and Select All through the standard Edit menu, keyboard shortcuts and a built-in context menu
 - Shortcuts: **Cmd/Ctrl+B** bold, **Cmd/Ctrl+I** italic, **Cmd/Ctrl+K** link
-- A **floating formatting toolbar** that appears when the mouse comes near the top edge. It has bold, italic, strikethrough, inline code, H1–H3, bulleted/numbered/task lists, quote, link, code block, table and horizontal rule. Its first button switches between rendered Markdown and plain text. Buttons that don't fit a narrow editor are left out automatically. The toolbar is never shown while the editor is read-only.
+- A **floating formatting toolbar** that appears when the mouse comes near the top edge. It has bold, italic, strikethrough, inline code, H1–H3, bulleted/numbered/task lists, quote, link, code block, table and horizontal rule. Its first button switches between rendered Markdown and plain text. Buttons that don't fit a narrow editor are left out automatically. While the editor is read-only, the toolbar is replaced by just this view toggle, always shown in the top right corner.
 - Optional read-only mode and an option to show the raw, unrendered Markdown
 
 ### Look & platform
@@ -115,7 +115,7 @@ End Function
 | `Text` | String | The same raw text. Setting a non-empty string turns `RenderMarkdown` off |
 | `RenderMarkdown` | Boolean | When `False`, the text is shown as raw Markdown |
 | `ReadOnly` | Boolean | Prevents editing; selection and copying still work |
-| `HasToolbar` | Boolean | Shows the formatting toolbar when the mouse comes near the top edge. Never shown while `ReadOnly` is `True` |
+| `HasToolbar` | Boolean | Shows the formatting toolbar when the mouse comes near the top edge. While `ReadOnly` is `True`, only the Markdown/plain text toggle is shown, always, in the top right corner |
 | `ToolbarRevealDistance` | Integer | Distance in points from the top edge within which the toolbar appears |
 | `BaseFolder` | FolderItem | Folder that relative image and link paths are resolved against |
 | `TableAlignment` | TableAlignments | Places tables narrower than the editor on the left, center or right |

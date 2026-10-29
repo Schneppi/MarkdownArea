@@ -363,7 +363,8 @@ Inherits DesktopCanvas
 	#tag Event
 		Sub MouseExit()
 		  If mHoverTimer <> Nil Then mHoverTimer.RunMode = Timer.RunModes.Off
-		  If mToolbarPressed < 0 Then SetToolbarState(False, -1)
+		  // The read-only view toggle stays visible
+		  If mToolbarPressed < 0 Then SetToolbarState(mReadOnly And ToolbarAllowed, -1)
 		  SetCursorKind(kCursorText)
 		  RaiseEvent MouseExit
 		End Sub
@@ -2141,7 +2142,12 @@ Inherits DesktopCanvas
 		  Else
 		    mToolbarWidth = mToolbarX(count - 1) + kToolbarButtonWidth + kToolbarInset
 		  End If
-		  mToolbarLeft = Max(kToolbarMargin, Floor((Width - kScrollbarReserve - mToolbarWidth) / 2))
+		  If mReadOnly Then
+		    // The read-only view toggle sits in the top right corner
+		    mToolbarLeft = Max(kToolbarMargin, Width - kScrollbarReserve - kToolbarMargin - mToolbarWidth)
+		  Else
+		    mToolbarLeft = Max(kToolbarMargin, Floor((Width - kScrollbarReserve - mToolbarWidth) / 2))
+		  End If
 		  For i As Integer = 0 To count - 1
 		    mToolbarX(i) = mToolbarX(i) + mToolbarLeft
 		  Next
@@ -3252,8 +3258,8 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Function ToolbarAllowed() As Boolean
-		  // The toolbar only edits, so it never shows while the editor is read-only
-		  Return mHasToolbar And Not mReadOnly
+		  // While read-only, the toolbar is reduced to the view toggle (see ToolbarItems)
+		  Return mHasToolbar
 		End Function
 	#tag EndMethod
 
@@ -3279,7 +3285,13 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Function ToolbarItems() As Integer()
-		  // Toolbar buttons in order; kToolSeparator draws a divider between groups
+		  // Toolbar buttons in order; kToolSeparator draws a divider between groups.
+		  // A read-only editor can't be edited, so it only gets the view toggle.
+		  If mReadOnly Then
+		    Var viewItems() As Integer
+		    viewItems.Add(kToolPlainText)
+		    Return viewItems
+		  End If
 		  If mToolbarItems.Count = 0 Then
 		    mToolbarItems = Array(kToolPlainText, kToolSeparator, _
 		    kToolBold, kToolItalic, kToolStrike, kToolCode, kToolSeparator, _
@@ -3388,6 +3400,13 @@ Inherits DesktopCanvas
 		  // and stays while the mouse is on it
 		  If mToolbarPressed <> -1 Then Return
 		  Var inside As Boolean = x >= 0 And x < Width And y >= 0 And y < Height
+		  If mReadOnly Then
+		    // The read-only view toggle is always shown, not only near the top edge
+		    Var hoverItem As Integer = -1
+		    If inside Then hoverItem = ToolbarItemAt(x, y)
+		    SetToolbarState(ToolbarAllowed, hoverItem)
+		    Return
+		  End If
 		  Var show As Boolean = ToolbarAllowed And Not mMouseSelecting And inside And (y <= mToolbarRevealDistance Or (mToolbarVisible And ToolbarContains(x, y)))
 		  Var hover As Integer = -1
 		  If show Then hover = ToolbarItemAt(x, y)
@@ -3746,7 +3765,7 @@ Inherits DesktopCanvas
 		#tag Setter
 			Set
 			  mHasToolbar = value
-			  If Not value Then SetToolbarState(False, -1)
+			  SetToolbarState(value And mReadOnly, -1)
 			  Refresh(False)
 			End Set
 		#tag EndSetter
@@ -4131,11 +4150,9 @@ Inherits DesktopCanvas
 		#tag Setter
 			Set
 			  mReadOnly = value
-			  // The toolbar only edits, so a read-only editor never shows it
-			  If value Then
-			    mToolbarPressed = -1
-			    SetToolbarState(False, -1)
-			  End If
+			  // A read-only editor always shows the view toggle instead of the editing toolbar
+			  mToolbarPressed = -1
+			  SetToolbarState(value And mHasToolbar, -1)
 			  Refresh(False)
 			End Set
 		#tag EndSetter
