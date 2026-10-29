@@ -44,7 +44,7 @@ Begin DesktopWindow Window1
       Panels          =   ""
       Scope           =   2
       SmallTabs       =   False
-      TabDefinition   =   "✏️ Playground\r🔒 Read-only\r📝 Plain text\r📊 Tables"
+      TabDefinition   =   "✏️ Playground\r🔒 Read-only\r📝 Plain text\r📊 Tables\r📦 Container"
       TabIndex        =   0
       TabPanelIndex   =   0
       TabStop         =   True
@@ -1656,6 +1656,68 @@ Begin DesktopWindow Window1
          Visible         =   True
          Width           =   240
       End
+      Begin DesktopLabel ContainerLabel
+         AllowAutoDeactivate=   True
+         Bold            =   True
+         Enabled         =   True
+         FontName        =   "System"
+         FontSize        =   0.0
+         FontUnit        =   0
+         Height          =   20
+         Index           =   -2147483648
+         InitialParent   =   "Tabs"
+         Italic          =   False
+         Left            =   40
+         LockBottom      =   False
+         LockedInPosition=   False
+         LockLeft        =   True
+         LockRight       =   True
+         LockTop         =   True
+         Multiline       =   False
+         Scope           =   2
+         Selectable      =   False
+         TabIndex        =   0
+         TabPanelIndex   =   5
+         TabStop         =   True
+         Text            =   "📦 A MarkdownArea inside a DesktopContainer (MarkdownContainer)"
+         TextAlignment   =   0
+         TextColor       =   &c000000
+         Tooltip         =   ""
+         Top             =   56
+         Transparent     =   False
+         Underline       =   False
+         Visible         =   True
+         Width           =   1000
+      End
+      Begin MarkdownContainer ContainerDemo
+         AllowAutoDeactivate=   True
+         AllowFocus      =   False
+         AllowFocusRing  =   False
+         AllowTabs       =   True
+         Backdrop        =   0
+         BackgroundColor =   &cFFFFFF
+         Composited      =   False
+         Enabled         =   True
+         HasBackgroundColor=   False
+         Height          =   616
+         Index           =   -2147483648
+         InitialParent   =   "Tabs"
+         Left            =   40
+         LockBottom      =   True
+         LockedInPosition=   False
+         LockLeft        =   True
+         LockRight       =   True
+         LockTop         =   True
+         Scope           =   2
+         TabIndex        =   1
+         TabPanelIndex   =   5
+         TabStop         =   True
+         Tooltip         =   ""
+         Top             =   84
+         Transparent     =   False
+         Visible         =   True
+         Width           =   1000
+      End
    End
    Begin Timer SyncTimer
       Index           =   -2147483648
@@ -1774,6 +1836,8 @@ End
 		    Return PlainArea
 		  Case 3
 		    Return TablesArea
+		  Case 4
+		    Return ContainerDemo.Area
 		  Else
 		    Return Editor
 		  End Select

@@ -73,11 +73,11 @@ The `Markdown` property always holds the raw, unchanged Markdown, so you can sav
 
 To use `MarkdownArea` in place of a `DesktopTextArea` you already have, see [Replacing a DesktopTextArea](#replacing-a-desktoptextarea).
 
-The included demo project (`MarkdownArea.xojo_project`) shows off the features on four tabs. See [Demo app](#demo-app).
+The included demo project (`MarkdownArea.xojo_project`) shows off the features on five tabs. See [Demo app](#demo-app).
 
 ## Demo app
 
-Run `MarkdownArea.xojo_project` to try MarkdownArea before you add it to your own project. The window has four tabs, each with a `MarkdownArea` set up differently and switches next to it:
+Run `MarkdownArea.xojo_project` to try MarkdownArea before you add it to your own project. The window has five tabs, each with a `MarkdownArea` set up differently:
 
 | Tab | What it shows | What you can switch |
 |:--|:--|:--|
@@ -85,6 +85,7 @@ Run `MarkdownArea.xojo_project` to try MarkdownArea before you add it to your ow
 | 🔒 **Read-only** | Release notes in a `ReadOnly` editor. Move the mouse over it to see the view button | `ReadOnly` (unlock it and try typing) and `ReadOnlyRenderToggle` |
 | 📝 **Plain text** | An editor with `RenderMarkdown` and `HasToolbar` off, which works like a plain `DesktopTextArea`, next to a read-only preview that renders the same text as you type | Nothing: just type on the left |
 | 📊 **Tables** | Rendered tables, centered with `TableAlignment`: a scoreboard, column alignment and cells that wrap | Left, center or right placement, `TableFullWidth`, and **🏆 Shuffle the scores** for a new random scoreboard |
+| 📦 **Container** | A `MarkdownArea` inside a `DesktopContainer` (`MarkdownContainer`), inset from the container's edges, for checking clicks, selection and scrolling when the editor isn't placed directly on a window | Nothing: click, double-click and type |
 
 The switches show each setting's property name as a tooltip. **File > Print…** (Cmd/Ctrl+P) prints the editor on the tab that is showing. It uses the optional `MarkdownPrinting` module, described in [Printing](#printing).
 
