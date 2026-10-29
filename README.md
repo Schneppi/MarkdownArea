@@ -89,7 +89,7 @@ MarkdownArea1.AddText(EndOfLine + "- [ ] New task")
 
 The editor shows the document either rendered as Markdown or as plain text, with every Markdown character visible. The text itself never changes, only how it's shown.
 
-Users switch the view with the first toolbar button, the one with the Markdown logo (an "M" and a down arrow). While plain text is shown, the button stays highlighted, and its tooltip says which view a click switches to.
+Users switch the view with the first toolbar button. Its icon shows the current view: an "M" and an eye for rendered Markdown, a "T" and an eye for plain text. Its tooltip says which view a click switches to.
 
 In code, the property you load the text through picks the view:
 
@@ -167,7 +167,7 @@ End Function
 |:--|:--|:--|
 | `Markdown` | String | The raw Markdown text. Setting a non-empty string shows it rendered. Code only, not in the Inspector |
 | `Text` | String | The same raw text. Setting a non-empty string shows it as plain text |
-| `RenderMarkdown` | Boolean | `True` shows the text rendered, `False` as plain text. The toolbar toggle switches it too |
+| `RenderMarkdown` | Boolean | `True` shows the text rendered, `False` (the default) as plain text. The toolbar toggle switches it too |
 | `ReadOnly` | Boolean | Prevents editing; selection and copying still work. Replaces the toolbar with a small view button in the top right corner, shown while the mouse is over the editor |
 | `HasToolbar` | Boolean | Shows the formatting toolbar when the mouse comes near the top edge, or the view toggle while `ReadOnly` is `True` |
 | `ToolbarRevealDistance` | Integer | Distance in points from the top edge within which the toolbar appears |

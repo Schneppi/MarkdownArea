@@ -4281,7 +4281,7 @@ Inherits DesktopCanvas
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
-		Private mRenderMarkdown As Boolean = True
+		Private mRenderMarkdown As Boolean
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
@@ -5385,7 +5385,7 @@ Inherits DesktopCanvas
 			Name="RenderMarkdown"
 			Visible=true
 			Group="Behavior"
-			InitialValue="True"
+			InitialValue="False"
 			Type="Boolean"
 			EditorType=""
 		#tag EndViewProperty
