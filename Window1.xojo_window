@@ -1719,14 +1719,6 @@ Begin DesktopWindow Window1
          Width           =   1000
       End
    End
-   Begin Timer SyncTimer
-      Index           =   -2147483648
-      LockedInPosition=   False
-      Period          =   250
-      RunMode         =   2
-      Scope           =   2
-      TabPanelIndex   =   0
-   End
 End
 #tag EndDesktopWindow
 
@@ -2202,6 +2194,13 @@ End
 
 #tag Events Editor
 	#tag Event
+		Sub RenderMarkdownChanged()
+		  // The editor's own toolbar or view button switched the view; keep the checkbox in step
+		  SyncPlaygroundControls
+		  UpdateStatus
+		End Sub
+	#tag EndEvent
+	#tag Event
 		Sub TextChanged()
 		  UpdateStatus
 		End Sub
@@ -2390,18 +2389,6 @@ End
 		  Var scroll As Integer = TablesArea.VerticalScrollPosition
 		  TablesArea.Markdown = TablesMarkdown
 		  TablesArea.VerticalScrollPosition = scroll
-		End Sub
-	#tag EndEvent
-#tag EndEvents
-#tag Events SyncTimer
-	#tag Event
-		Sub Action()
-		  // The editor's own view button and toolbar can switch the view; keep the checkbox in step
-		  If mUpdating Then Return
-		  If RenderCheck.Value <> Editor.RenderMarkdown Then
-		    SyncPlaygroundControls
-		    UpdateStatus
-		  End If
 		End Sub
 	#tag EndEvent
 #tag EndEvents

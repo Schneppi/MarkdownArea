@@ -135,6 +135,14 @@ MarkdownArea1.RenderMarkdown = False
 
 Reading `Markdown` or `Text` returns the same raw text, whichever view is shown.
 
+`RenderMarkdown` also tells you which view is showing. When users switch the view with the toolbar button or the read-only view button, the `RenderMarkdownChanged` event is raised after the view has changed. It isn't raised when your code changes the view, through `RenderMarkdown`, `Markdown` or `Text`.
+
+```xojo
+Sub RenderMarkdownChanged()
+  ViewModeLabel.Text = If(Me.RenderMarkdown, "Markdown", "Plain text")
+End Sub
+```
+
 Setting `Markdown` or `Text` to an empty string clears the editor but keeps the current view. Xojo applies the Inspector's empty `Text` to every control when its window opens, so without this rule every MarkdownArea would open in plain text.
 
 `Markdown` is only available in code, not in the Inspector. Text you type into the Inspector's `Text` field goes through `Text`, so it opens as plain text. To show design-time text rendered, set `Markdown` in the control's `Opening` event instead.
@@ -259,7 +267,7 @@ End Function
 |:--|:--|:--|
 | `Markdown` | String | The raw Markdown text. Setting a non-empty string shows it rendered. Code only, not in the Inspector |
 | `Text` | String | The same raw text. Setting a non-empty string shows it as plain text |
-| `RenderMarkdown` | Boolean | `True` shows the text rendered, `False` (the default) as plain text. The toolbar toggle switches it too |
+| `RenderMarkdown` | Boolean | `True` shows the text rendered, `False` (the default) as plain text. Read it to check the current view, set it to change the view. The toolbar toggle and the read-only view button switch it too, and raise `RenderMarkdownChanged` |
 | `ReadOnly` | Boolean | Prevents editing; selection and copying still work. Replaces the toolbar with a small view button in the top right corner, shown while the mouse is over the editor |
 | `ReadOnlyRenderToggle` | Boolean | Shows the view button while `ReadOnly` is `True` (default `True`). Set it to `False` so readers can't switch the view |
 | `TextAlignment` | TextAlignments | Aligns the text left, centered or right, in both views. Code blocks, tables and images keep their own alignment |
@@ -304,6 +312,7 @@ So you can change an existing `DesktopTextArea`'s Super to `MarkdownArea` withou
 |:--|:--|
 | `TextChanged` | The text was changed |
 | `SelectionChanged` | The caret or selection moved |
+| `RenderMarkdownChanged` | The user switched between the rendered and the plain text view with the toolbar button or the read-only view button. Not raised when code changes the view |
 | `LinkClicked(url) As Boolean` | A link was Cmd/Ctrl-clicked. Return `True` to handle it yourself |
 | `ImageRequested(source) As Picture` | Supply the picture for an image source, or return `Nil` to let MarkdownArea load it |
 

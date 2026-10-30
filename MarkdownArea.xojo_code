@@ -963,6 +963,7 @@ Inherits DesktopCanvas
 		    RenderMarkdown = Not mRenderMarkdown
 		    // The button's tooltip names the other view now
 		    If mToolbarTooltipActive Then Self.Tooltip = ToolbarTooltip(kToolPlainText)
+		    RaiseEvent RenderMarkdownChanged
 		    Return
 		  End If
 		  If mReadOnly Then Return
@@ -3876,6 +3877,10 @@ Inherits DesktopCanvas
 		Event Paint(g As Graphics, areas() As Rect)
 	#tag EndHook
 
+	#tag Hook, Flags = &h0, Description = 526169736564207768656E207468652075736572207377697463686573206265747765656E2072656E6465726564204D61726B646F776E20616E6420706C61696E207465787420776974682074686520746F6F6C62617220627574746F6E206F722074686520726561642D6F6E6C79207669657720627574746F6E2E204E6F7420726169736564207768656E20636F646520736574732052656E6465724D61726B646F776E2E
+		Event RenderMarkdownChanged()
+	#tag EndHook
+
 	#tag Hook, Flags = &h0, Description = 526169736564207768656E20746865206361726574206D6F766573206F72207468652073656C656374696F6E206368616E6765732E
 		Event SelectionChanged()
 	#tag EndHook
@@ -3940,7 +3945,12 @@ Inherits DesktopCanvas
 		
 		  If source.BeginsWith("db:") Then Return LoadPictureFromDatabase(source.Middle(3))
 		  Return Nil
-		
+
+		RenderMarkdownChanged
+		  Raised after the user switches the view with the toolbar button or the read-only
+		  view button. Read RenderMarkdown to see the new view. Setting RenderMarkdown,
+		  Markdown or Text from code doesn't raise it.
+
 		TextChanged, SelectionChanged and the usual DesktopCanvas events work as expected.
 		
 		PRINTING (needs the MarkdownPrinting module)
