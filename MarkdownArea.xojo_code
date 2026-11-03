@@ -3747,11 +3747,12 @@ Inherits DesktopCanvas
 		Private Function WheelStep() As Double
 		  // Pixels scrolled per unit of MouseWheel's deltaY
 		  #If TargetWindows Then
-		    // Xojo already reports one unit per line, following the system's wheel setting (3 per notch by default)
-		    Return BaseRowHeight
+		    // Xojo already reports one unit per line, following the system's wheel setting (3 per notch by default);
+		    // scale it up so a notch scrolls about 4.5 lines instead of 3
+		    Return 1.5 * BaseRowHeight
 		  #ElseIf TargetLinux Then
-		    // One wheel notch is one unit; scroll three lines like most Linux applications
-		    Return 3 * BaseRowHeight
+		    // One wheel notch is one unit; scroll about 4.5 lines, a bit more than the usual three
+		    Return 4.5 * BaseRowHeight
 		  #Else
 		    // macOS reports precise, already accelerated deltas
 		    Return kWheelStep
