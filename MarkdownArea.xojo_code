@@ -3127,16 +3127,6 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
-		Private Function RowsAreBlank(firstRow As Integer) As Boolean
-		  // True when the rows from firstRow on only hold empty lines, so no page is started for them
-		  For r As Integer = firstRow To mRows.LastIndex
-		    If mLines(mRows(r).Line).Trim <> "" Then Return False
-		  Next
-		  Return True
-		End Function
-	#tag EndMethod
-
-	#tag Method, Flags = &h21
 		Private Function RowForPosition(lineIndex As Integer, col As Integer) As Integer
 		  // A column on a wrap boundary belongs to the next row
 		  Var lastRow As Integer = mLineLastRow(lineIndex)
@@ -3144,6 +3134,16 @@ Inherits DesktopCanvas
 		    If col < mRows(r).EndCol Or r = lastRow Then Return r
 		  Next
 		  Return lastRow
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Function RowsAreBlank(firstRow As Integer) As Boolean
+		  // True when the rows from firstRow on only hold empty lines, so no page is started for them
+		  For r As Integer = firstRow To mRows.LastIndex
+		    If mLines(mRows(r).Line).Trim <> "" Then Return False
+		  Next
+		  Return True
 		End Function
 	#tag EndMethod
 
@@ -3744,26 +3744,25 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
-		Private Function WheelStep() As Double
-		  // Pixels scrolled per unit of MouseWheel's deltaY
-		  #If TargetWindows Then
-		    // Xojo already reports one unit per line, following the system's wheel setting (3 per notch by default);
-		    // scale it up so a notch scrolls about 4.5 lines instead of 3
-		    Return 1.5 * BaseRowHeight
-		  #ElseIf TargetLinux Then
-		    // One wheel notch is one unit; scroll about 4.5 lines, a bit more than the usual three
-		    Return 4.5 * BaseRowHeight
-		  #Else
-		    // macOS reports precise, already accelerated deltas
-		    Return kWheelStep
-		  #EndIf
+		Private Function UseDarkColors() As Boolean
+		  // Printed pages are always light, whatever the appearance of the app
+		  Return Color.IsDarkMode And mPrintWidth = 0
 		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
-		Private Function UseDarkColors() As Boolean
-		  // Printed pages are always light, whatever the appearance of the app
-		  Return Color.IsDarkMode And mPrintWidth = 0
+		Private Function WheelStep() As Double
+		  // Pixels scrolled per unit of MouseWheel's deltaY
+		  #If TargetWindows Then
+		    // Xojo already reports one unit per line, following the system's wheel setting (3 per notch by default);
+		    Return 1 * BaseRowHeight
+		  #ElseIf TargetLinux Then
+		    // One wheel notch is one unit; scroll about 3 lines
+		    Return 3 * BaseRowHeight
+		  #Else
+		    // macOS reports precise, already accelerated deltas
+		    Return kWheelStep
+		  #EndIf
 		End Function
 	#tag EndMethod
 
@@ -3946,12 +3945,12 @@ Inherits DesktopCanvas
 		
 		  If source.BeginsWith("db:") Then Return LoadPictureFromDatabase(source.Middle(3))
 		  Return Nil
-
+		
 		RenderMarkdownChanged
 		  Raised after the user switches the view with the toolbar button or the read-only
 		  view button. Read RenderMarkdown to see the new view. Setting RenderMarkdown,
 		  Markdown or Text from code doesn't raise it.
-
+		
 		TextChanged, SelectionChanged and the usual DesktopCanvas events work as expected.
 		
 		PRINTING (needs the MarkdownPrinting module)
