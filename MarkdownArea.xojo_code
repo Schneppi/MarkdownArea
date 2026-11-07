@@ -18,6 +18,11 @@ Inherits DesktopCanvas
 		    RemoveHandler mHoverTimer.Action, WeakAddressOf HoverTimerAction
 		    mHoverTimer = Nil
 		  End If
+		  If mMeasureTimer <> Nil Then
+		    mMeasureTimer.RunMode = Timer.RunModes.Off
+		    RemoveHandler mMeasureTimer.Action, WeakAddressOf MeasureTimerAction
+		    mMeasureTimer = Nil
+		  End If
 		  If mDownloads <> Nil Then
 		    For Each key As Variant In mDownloads.Keys
 		      Var connection As URLConnection = key
@@ -470,6 +475,12 @@ Inherits DesktopCanvas
 		  mHoverTimer.RunMode = Timer.RunModes.Off
 		  AddHandler mHoverTimer.Action, WeakAddressOf HoverTimerAction
 		  
+		  // Lays out the lines that are not in view in the background (see MeasureTimerAction)
+		  mMeasureTimer = New Timer
+		  mMeasureTimer.Period = kMeasurePeriod
+		  mMeasureTimer.RunMode = Timer.RunModes.Multiple
+		  AddHandler mMeasureTimer.Action, WeakAddressOf MeasureTimerAction
+		  
 		  RaiseEvent Opening
 		End Sub
 	#tag EndEvent
@@ -478,92 +489,121 @@ Inherits DesktopCanvas
 		Sub Paint(g As Graphics, areas() As Rect)
 		  // Text is laid out with the Graphics it is drawn with. On Windows a picture can measure text
 		  // narrower than the editor draws it (e.g. inside a DesktopContainer), so words overlap and
-		  // lose their spaces. A layout made outside Paint is therefore made again here.
+		  // lose their spaces. Lines in view that were laid out outside Paint are therefore laid out again here.
+		  // Only the lines in view are laid out and drawn, so a long document paints as fast as a short one.
 		  mPaintGraphics = g
-		  If Not mLayoutMeasuredInPaint Then mLayoutDirty = True
 		  EnsureLayout
+		  CompactLayout
+		  PrepareVisibleLines
 		  
 		  g.DrawingColor = EffectiveBackgroundColor
 		  g.FillRectangle(0, 0, g.Width, g.Height)
 		  
-		  If mRows.Count > 0 Then
-		    Var scroll As Double = mScrollY
-		    Var viewBottom As Double = scroll + Height
-		    Var left As Double = kPadding
-		    Var right As Double = Width - kPadding - kScrollbarReserve
-		    Var firstRow As Integer = RowAtY(scroll)
-		    
-		    // Block decorations: code backgrounds, quote bars, horizontal rules
-		    For i As Integer = mRows(firstRow).Line To mLines.LastIndex
-		      If mLineTop(i) > viewBottom Then Exit For
-		      DrawLineDecoration(g, i, left, right, mLineTop(i) - scroll)
-		    Next
-		    
-		    // Selection
-		    Var sl, sc, el, ec As Integer
-		    GetSelection(sl, sc, el, ec)
-		    Var selecting As Boolean = sl <> el Or sc <> ec
-		    If selecting Then
-		      g.DrawingColor = SelectionColor
-		      For r As Integer = firstRow To mRows.LastIndex
-		        Var row As MDRow = mRows(r)
-		        If row.Top > viewBottom Or row.Line > el Then Exit For
-		        If row.Line < sl Then Continue
-		        
-		        // Rendered table rows are highlighted as a whole
-		        If IsTableKind(mLineKinds(row.Line)) Then
-		          If LineIsSelected(row.Line, sl, sc, el, ec) Then
-		            Var tableX, tableWidth As Double
-		            TableBounds(mLineTable(row.Line), tableX, tableWidth)
-		            g.FillRectangle(left + tableX, row.Top - scroll, tableWidth, row.Height)
-		          End If
-		          Continue
+		  Var scroll As Double = mScrollY
+		  Var viewBottom As Double = scroll + Height
+		  Var left As Double = kPadding
+		  Var right As Double = Width - kPadding - kScrollbarReserve
+		  Var firstLine As Integer = LineAtY(scroll)
+		  Var lastLine As Integer = mLines.LastIndex
+		  
+		  // Block decorations: code backgrounds, quote bars, horizontal rules
+		  For i As Integer = firstLine To lastLine
+		    If mLineTop(i) > viewBottom Then Exit For
+		    If mLineFirstRow(i) < 0 Then Continue
+		    DrawLineDecoration(g, i, left, right, mLineTop(i) - scroll)
+		  Next
+		  
+		  // Selection
+		  Var sl, sc, el, ec As Integer
+		  GetSelection(sl, sc, el, ec)
+		  Var selecting As Boolean = sl <> el Or sc <> ec
+		  If selecting Then
+		    g.DrawingColor = SelectionColor
+		    For i As Integer = Max(firstLine, sl) To Min(lastLine, el)
+		      Var lineTop As Double = mLineTop(i)
+		      If lineTop > viewBottom Then Exit For
+		      If mLineFirstRow(i) < 0 Then Continue
+		  
+		      // Rendered table rows are highlighted as a whole
+		      If IsTableKind(mLineKinds(i)) Then
+		        If LineIsSelected(i, sl, sc, el, ec) Then
+		          Var tableX, tableWidth As Double
+		          TableBounds(mLineTable(i), tableX, tableWidth)
+		          g.FillRectangle(left + tableX, lineTop - scroll, tableWidth, mRows(mLineFirstRow(i)).Height)
 		        End If
-		        
+		        Continue
+		      End If
+		  
+		      For r As Integer = mLineFirstRow(i) To mLineLastRow(i)
+		        Var row As MDRow = mRows(r)
+		        Var rowTop As Double = lineTop + row.Top
+		        If rowTop > viewBottom Then Exit For
 		        Var c1 As Integer = row.StartCol
 		        Var c2 As Integer = row.EndCol
-		        If row.Line = sl Then c1 = Max(c1, sc)
-		        If row.Line = el Then c2 = Min(c2, ec)
+		        If i = sl Then c1 = Max(c1, sc)
+		        If i = el Then c2 = Min(c2, ec)
 		        // The line break of a fully crossed line is shown as a small extra block
-		        Var includesBreak As Boolean = r = mLineLastRow(row.Line) And row.Line < el
+		        Var includesBreak As Boolean = r = mLineLastRow(i) And i < el
 		        If c1 > c2 Or (c1 = c2 And Not includesBreak) Then Continue
-		        
+		  
 		        Var x1 As Double = left + XForCol(r, c1)
 		        Var x2 As Double = left + XForCol(r, c2)
 		        If includesBreak Then x2 = x2 + kLineBreakWidth
-		        g.FillRectangle(x1, row.Top - scroll, x2 - x1, row.Height)
-		      Next
-		    End If
-		    
-		    // Text
-		    For r As Integer = firstRow To mRows.LastIndex
-		      Var row As MDRow = mRows(r)
-		      If row.Top > viewBottom Then Exit For
-		      For f As Integer = row.FirstFragment To row.LastFragment
-		        Var frag As MDFragment = mFragments(f)
-		        If (frag.Flags And kFlagImage) <> 0 Then
-		          DrawImage(g, frag, row, left, row.Top - scroll, selecting And FragmentIsSelected(frag, sl, sc, el, ec))
-		        ElseIf (frag.Flags And kFlagHidden) = 0 Then
-		          DrawFragment(g, frag, row, left, row.Top - scroll)
-		        End If
+		        g.FillRectangle(x1, rowTop - scroll, x2 - x1, row.Height)
 		      Next
 		    Next
-		    
-		    // Caret
-		    If mHasFocus And mCaretVisible And Not selecting Then
-		      Var cx, cy, ch As Double
-		      CaretRect(cx, cy, ch)
-		      g.DrawingColor = EffectiveTextColor
-		      g.FillRectangle(left + cx, cy - scroll, kCaretWidth, ch)
-		    End If
-		    
-		    // Overlay scroll thumb
-		    If mHasVerticalScrollbar And mContentHeight > Height Then
-		      Var thumbHeight As Double = ThumbHeight
-		      Var thumbY As Double = 2 + (Height - 4 - thumbHeight) * mScrollY / (mContentHeight - Height)
-		      g.DrawingColor = Color.RGB(128, 128, 128, 110)
-		      g.FillRoundRectangle(Width - 9, thumbY, 6, thumbHeight, 6, 6)
-		    End If
+		  End If
+		  
+		  // Text
+		  For i As Integer = firstLine To lastLine
+		    Var lineTop As Double = mLineTop(i)
+		    If lineTop > viewBottom Then Exit For
+		    If mLineFirstRow(i) < 0 Then Continue
+		    For r As Integer = mLineFirstRow(i) To mLineLastRow(i)
+		      Var row As MDRow = mRows(r)
+		      Var rowTop As Double = lineTop + row.Top
+		      If rowTop > viewBottom Then Exit For
+		      If rowTop + row.Height < scroll Then Continue
+		      Var f As Integer = row.FirstFragment
+		      While f <= row.LastFragment
+		        Var frag As MDFragment = mFragments(f)
+		        If (frag.Flags And kFlagImage) <> 0 Then
+		          DrawImage(g, frag, row, left, rowTop - scroll, selecting And FragmentIsSelected(frag, sl, sc, el, ec))
+		        ElseIf (frag.Flags And kFlagHidden) = 0 Then
+		          #If TargetMacOS Then
+		            // Words of the same style that follow each other are drawn with one call. macOS measures text
+		            // in fractions of a point, so the words land exactly where they were measured.
+		            If (frag.Flags And kSymbolFlags) = 0 Then
+		              While f < row.LastFragment
+		                Var nextFrag As MDFragment = mFragments(f + 1)
+		                If nextFrag.Flags <> frag.Flags Or nextFrag.Scale <> frag.Scale Or nextFrag.DY <> frag.DY Or nextFrag.StartCol <> frag.EndCol Then Exit While
+		                frag.Width = nextFrag.X + nextFrag.Width - frag.X
+		                frag.EndCol = nextFrag.EndCol
+		                f = f + 1
+		              Wend
+		            End If
+		          #EndIf
+		          DrawFragment(g, frag, row, left, rowTop - scroll)
+		        End If
+		        f = f + 1
+		      Wend
+		    Next
+		  Next
+		  
+		  // Caret
+		  If mHasFocus And mCaretVisible And Not selecting Then
+		    Var cx, cy, ch As Double
+		    CaretRect(cx, cy, ch)
+		    g.DrawingColor = EffectiveTextColor
+		    g.FillRectangle(left + cx, cy - scroll, kCaretWidth, ch)
+		  End If
+		  
+		  // Overlay scroll thumb
+		  If mHasVerticalScrollbar And mContentHeight > Height Then
+		    Var thumbHeight As Double = ThumbHeight
+		    Var thumbY As Double = 2 + (Height - 4 - thumbHeight) * mScrollY / (mContentHeight - Height)
+		    g.DrawingColor = Color.RGB(128, 128, 128, 110)
+		    g.FillRoundRectangle(Width - 9, thumbY, 6, thumbHeight, 6, 6)
 		  End If
 		  
 		  If mHasBorder Then
@@ -713,20 +753,39 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Sub AnalyzeBlocks()
-		  // Marks fenced code blocks: the fence lines themselves and the lines between them
-		  mBlockKinds.ResizeTo(mLines.LastIndex)
+		  // Marks fenced code blocks: the fence lines themselves and the lines between them.
+		  // The results go into new arrays, so a caller can keep the old ones to compare (see LinesReplaced).
+		  #Pragma BackgroundTasks False
+		  #Pragma BoundsChecking False
+		  #Pragma NilObjectChecking False
+		  Var lines() As String = mLines
+		  Var lastLine As Integer = lines.LastIndex
+		  Var kinds() As Integer
+		  kinds.ResizeTo(lastLine)
+		  Var sizes() As Integer
+		  sizes.ResizeTo(lastLine)
 		  Var inFence As Boolean
-		  For i As Integer = 0 To mLines.LastIndex
-		    Var trimmed As String = mLines(i).TrimLeft
-		    If trimmed.BeginsWith("```") Or trimmed.BeginsWith("~~~") Then
-		      mBlockKinds(i) = kKindFence
+		  For i As Integer = 0 To lastLine
+		    Var line As String = lines(i)
+		    sizes(i) = LineSize(line)
+		    // Only lines starting with ` or ~ (after indentation) can be fences; most lines are ruled out by one byte
+		    Var first As Integer
+		    If line.Bytes > 0 Then first = line.AscByte
+		    If (first > 0 And first <= 32) Or first >= 128 Then
+		      line = line.TrimLeft
+		      first = 0
+		      If line.Bytes > 0 Then first = line.AscByte
+		    End If
+		    If (first = 96 Or first = 126) And (line.BeginsWith("```") Or line.BeginsWith("~~~")) Then
+		      kinds(i) = kKindFence
 		      inFence = Not inFence
 		    ElseIf inFence Then
-		      mBlockKinds(i) = kKindCode
-		    Else
-		      mBlockKinds(i) = kKindNormal
+		      kinds(i) = kKindCode
 		    End If
 		  Next
+		  mBlockKinds = kinds
+		  mLineSizes = sizes
+		  mBlocksDirty = False
 		  
 		  AnalyzeTables
 		End Sub
@@ -734,55 +793,72 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Sub AnalyzeTables()
-		  // A table is a header line, a delimiter line like |---|:--:| and the "|" lines below it
-		  Var lastLine As Integer = mLines.LastIndex
-		  mLineTable.ResizeTo(lastLine)
+		  // A table is a header line, a delimiter line like |---|:--:| and the "|" lines below it.
+		  // Like AnalyzeBlocks, this fills new arrays and leaves the old ones to a caller that kept them.
+		  #Pragma BackgroundTasks False
+		  Var lines() As String = mLines
+		  Var kinds() As Integer = mBlockKinds
+		  Var lastLine As Integer = lines.LastIndex
+		  Var lineTable() As Integer
+		  lineTable.ResizeTo(lastLine)
 		  For i As Integer = 0 To lastLine
-		    mLineTable(i) = -1
+		    lineTable(i) = -1
 		  Next
-		  mTableStart.ResizeTo(-1)
-		  mTableEnd.ResizeTo(-1)
-		  mTableFirstColumn.ResizeTo(-1)
-		  mTableColumnCount.ResizeTo(-1)
-		  mTableAlign.ResizeTo(-1)
-		  mTableColumnX.ResizeTo(-1)
-		  mTableColumnW.ResizeTo(-1)
+		  Var tableStart() As Integer
+		  Var tableEnd() As Integer
+		  Var firstColumn() As Integer
+		  Var columnCount() As Integer
+		  Var tableAlign() As Integer
+		  Var columnX() As Double
+		  Var columnW() As Double
+		  Var columnsValid() As Boolean
 		  
 		  Var i As Integer = 0
 		  While i < lastLine
-		    If mBlockKinds(i) = kKindNormal And mBlockKinds(i + 1) = kKindNormal And mLines(i).IndexOf("|") >= 0 Then
+		    If kinds(i) = kKindNormal And kinds(i + 1) = kKindNormal And lines(i).IndexOfBytes("|") >= 0 Then
 		      Var aligns() As Integer
 		      Var starts() As Integer
 		      Var ends() As Integer
-		      SplitTableCells(mLines(i), starts, ends)
-		      If ParseTableDelimiter(mLines(i + 1), aligns) And starts.Count = aligns.Count Then
-		        Var table As Integer = mTableStart.Count
-		        mTableStart.Add(i)
-		        mTableFirstColumn.Add(mTableAlign.Count)
-		        mTableColumnCount.Add(aligns.Count)
+		      SplitTableCells(lines(i), starts, ends)
+		      If ParseTableDelimiter(lines(i + 1), aligns) And starts.Count = aligns.Count Then
+		        Var table As Integer = tableStart.Count
+		        tableStart.Add(i)
+		        firstColumn.Add(tableAlign.Count)
+		        columnCount.Add(aligns.Count)
+		        columnsValid.Add(False)
 		        For Each align As Integer In aligns
-		          mTableAlign.Add(align)
-		          mTableColumnX.Add(0)
-		          mTableColumnW.Add(0)
+		          tableAlign.Add(align)
+		          columnX.Add(0)
+		          columnW.Add(0)
 		        Next
-		        
-		        mBlockKinds(i) = kKindTableHeader
-		        mLineTable(i) = table
-		        mBlockKinds(i + 1) = kKindTableDelimiter
-		        mLineTable(i + 1) = table
+		  
+		        kinds(i) = kKindTableHeader
+		        lineTable(i) = table
+		        kinds(i + 1) = kKindTableDelimiter
+		        lineTable(i + 1) = table
 		        Var j As Integer = i + 2
-		        While j <= lastLine And mBlockKinds(j) = kKindNormal And mLines(j).IndexOf("|") >= 0
-		          mBlockKinds(j) = kKindTableRow
-		          mLineTable(j) = table
+		        While j <= lastLine And kinds(j) = kKindNormal And lines(j).IndexOfBytes("|") >= 0
+		          kinds(j) = kKindTableRow
+		          lineTable(j) = table
 		          j = j + 1
 		        Wend
-		        mTableEnd.Add(j - 1)
+		        tableEnd.Add(j - 1)
 		        i = j
 		        Continue
 		      End If
 		    End If
 		    i = i + 1
 		  Wend
+		  
+		  mLineTable = lineTable
+		  mTableStart = tableStart
+		  mTableEnd = tableEnd
+		  mTableFirstColumn = firstColumn
+		  mTableColumnCount = columnCount
+		  mTableAlign = tableAlign
+		  mTableColumnX = columnX
+		  mTableColumnW = columnW
+		  mTableColumnsValid = columnsValid
 		End Sub
 	#tag EndMethod
 
@@ -1056,9 +1132,10 @@ Inherits DesktopCanvas
 		  // Caret position in document coordinates (x relative to the content's left edge)
 		  EnsureLayout
 		  Var r As Integer = RowForPosition(mCaretLine, mCaretCol)
+		  EnsureTops(mCaretLine)
 		  Var row As MDRow = mRows(r)
 		  x = XForCol(r, mCaretCol)
-		  y = row.Top + 2
+		  y = mLineTop(mCaretLine) + row.Top + 2
 		  h = row.Height - 4
 		End Sub
 	#tag EndMethod
@@ -1081,6 +1158,7 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Sub ClampScroll()
+		  EnsureTops(mLines.LastIndex)
 		  mScrollY = Max(0, Min(mScrollY, mContentHeight - Height))
 		End Sub
 	#tag EndMethod
@@ -1161,6 +1239,54 @@ Inherits DesktopCanvas
 		  If col1 <> col2 Then Return If(col1 < col2, -1, 1)
 		  Return 0
 		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub CompactLayout()
+		  // Lines laid out again leave their old rows and fragments behind in mRows and mFragments.
+		  // Once there are many, the arrays are rebuilt with only the rows and fragments still in use.
+		  // Row numbers change here, so this only runs where none are held (start of Paint and of a timer tick).
+		  If mGarbageFragments < kCompactThreshold Or mGarbageFragments * 2 < mFragments.Count Then Return
+		  #Pragma BackgroundTasks False
+		  #Pragma BoundsChecking False
+		  #Pragma NilObjectChecking False
+		  Var rows() As MDRow
+		  Var fragments() As MDFragment
+		  For i As Integer = 0 To mLineFirstRow.LastIndex
+		    Var firstRow As Integer = mLineFirstRow(i)
+		    If firstRow < 0 Then Continue
+		    Var newFirstRow As Integer = rows.Count
+		    For r As Integer = firstRow To mLineLastRow(i)
+		      Var row As MDRow = mRows(r)
+		      Var newFirstFragment As Integer = fragments.Count
+		      For f As Integer = row.FirstFragment To row.LastFragment
+		        Var frag As MDFragment = mFragments(f)
+		        frag.Line = i
+		        fragments.Add(frag)
+		      Next
+		      row.LastFragment = newFirstFragment + row.LastFragment - row.FirstFragment
+		      row.FirstFragment = newFirstFragment
+		      row.Line = i
+		      rows.Add(row)
+		    Next
+		    mLineFirstRow(i) = newFirstRow
+		    mLineLastRow(i) = rows.LastIndex
+		  Next
+		  mRows = rows
+		  mFragments = fragments
+		  mGarbageFragments = 0
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub CountGarbage(lineIndex As Integer)
+		  // The line's current rows and fragments are about to be replaced (see CompactLayout)
+		  If lineIndex < 0 Or lineIndex > mLineFirstRow.LastIndex Then Return
+		  Var firstRow As Integer = mLineFirstRow(lineIndex)
+		  If firstRow < 0 Then Return
+		  Var lastRow As Integer = mLineLastRow(lineIndex)
+		  mGarbageFragments = mGarbageFragments + (lastRow - firstRow + 1) + (mRows(lastRow).LastFragment - mRows(firstRow).FirstFragment + 1)
+		End Sub
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
@@ -1647,8 +1773,9 @@ Inherits DesktopCanvas
 		  // Lets the clicked line switch to raw Markdown now
 		  If Not mClickFreeze Then Return
 		  StopClickFreeze
+		  Var previousLine As Integer = mCurrentLine
 		  UpdateCurrentLine
-		  If mLayoutDirty Then
+		  If mCurrentLine <> previousLine Then
 		    EnsureCaretVisible
 		    Refresh(False)
 		  End If
@@ -1659,10 +1786,12 @@ Inherits DesktopCanvas
 		Private Sub EnsureCaretVisible()
 		  EnsureLayout
 		  Var row As MDRow = mRows(RowForPosition(mCaretLine, mCaretCol))
-		  If row.Top - kPadding < mScrollY Then
-		    mScrollY = row.Top - kPadding
-		  ElseIf row.Top + row.Height + kPadding > mScrollY + Height Then
-		    mScrollY = row.Top + row.Height + kPadding - Height
+		  EnsureTops(mCaretLine)
+		  Var rowTop As Double = mLineTop(mCaretLine) + row.Top
+		  If rowTop - kPadding < mScrollY Then
+		    mScrollY = rowTop - kPadding
+		  ElseIf rowTop + row.Height + kPadding > mScrollY + Height Then
+		    mScrollY = rowTop + row.Height + kPadding - Height
 		  End If
 		  ClampScroll
 		End Sub
@@ -1670,7 +1799,179 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Sub EnsureLayout()
-		  If mLayoutDirty Or mLayoutWidth <> Width Then Layout
+		  // A change of width, font or view throws every line's layout away. Lines are then laid out again
+		  // when they are needed: those in view right away, the others in the background (see MeasureTimerAction).
+		  If mPrintWidth > 0 Then Return // PrintBlock lays out on its own
+		  If Not (mLayoutDirty Or mPrintLayout Or mLayoutWidth <> Width Or mLineFirstRow.Count <> mLines.Count) Then Return
+		  
+		  // The line at the top of the view stays there
+		  Var anchorLine As Integer = -1
+		  Var anchorOffset As Double
+		  If mPrintLayout Then
+		    anchorLine = mPrintAnchorLine
+		    anchorOffset = mPrintAnchorOffset
+		  ElseIf mLineTop.Count = mLines.Count Then
+		    anchorLine = LineAtY(mScrollY)
+		    anchorOffset = mScrollY - mLineTop(anchorLine)
+		  End If
+		  
+		  // A new width alone keeps the lines' heights as estimates: while a window is resized they hardly change,
+		  // and the lines are measured again soon anyway. Other changes (font, view, printing) estimate again.
+		  InvalidateAllLines(mLayoutDirty Or mPrintLayout)
+		  If anchorLine >= 0 And anchorLine <= mLines.LastIndex Then mScrollY = mLineTop(anchorLine) + anchorOffset
+		  ClampScroll
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub EnsureLineLayout(lineIndex As Integer)
+		  // Lays out one line unless it is laid out already
+		  EnsureLayout
+		  If mLineFirstRow(lineIndex) < 0 Then
+		    LayoutLineAt(lineIndex)
+		  ElseIf mRows(mLineFirstRow(lineIndex)).Line <> lineIndex Then
+		    // Lines were added or removed above it since it was laid out
+		    RenumberLine(lineIndex)
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub EnsureOffsets(throughLine As Integer)
+		  // Character offsets of the lines' first characters, worked out up to throughLine
+		  #Pragma BackgroundTasks False
+		  #Pragma BoundsChecking False
+		  #Pragma NilObjectChecking False
+		  If throughLine <= mOffsetsValidThrough Then Return
+		  If mLineOffsets.LastIndex <> mLines.LastIndex Then mLineOffsets.ResizeTo(mLines.LastIndex)
+		  throughLine = Min(throughLine, mLines.LastIndex)
+		  Var offsets() As Integer = mLineOffsets
+		  Var lines() As String = mLines
+		  Var i As Integer = mOffsetsValidThrough + 1
+		  Var offset As Integer
+		  If i > 0 Then offset = offsets(i - 1) + lines(i - 1).Length + 1
+		  While i <= throughLine
+		    offsets(i) = offset
+		    offset = offset + lines(i).Length + 1
+		    i = i + 1
+		  Wend
+		  mOffsetsValidThrough = throughLine
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub EnsureTableColumns(g As Graphics, table As Integer, maxWidth As Double)
+		  // Columns are measured over all rows (including the caret line) so they stay put while editing
+		  If mTableColumnsValid(table) Then Return
+		  ComputeTableColumns(g, table, maxWidth)
+		  mTableColumnsValid(table) = True
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub EnsureTops(throughLine As Integer)
+		  // Document positions of the lines up to throughLine, from the heights of the lines above them.
+		  // Lines that are not laid out yet count with their estimated height.
+		  #Pragma BackgroundTasks False
+		  #Pragma BoundsChecking False
+		  #Pragma NilObjectChecking False
+		  If throughLine <= mTopsValidThrough Then Return
+		  Var lastLine As Integer = mLines.LastIndex
+		  If mLineTop.Count <> mLines.Count Then Return
+		  throughLine = Min(throughLine, lastLine)
+		  // Local references to the arrays make this loop, which can run over every line, several times faster
+		  Var tops() As Double = mLineTop
+		  Var bottoms() As Double = mLineBottom
+		  Var gaps() As Double = mLineGaps
+		  Var heights() As Double = mLineHeights
+		  Var i As Integer = mTopsValidThrough + 1
+		  Var y As Double = kPadding
+		  If i > 0 Then y = bottoms(i - 1)
+		  While i <= throughLine
+		    y = y + gaps(i)
+		    tops(i) = y
+		    y = y + heights(i)
+		    bottoms(i) = y
+		    i = i + 1
+		  Wend
+		  mTopsValidThrough = throughLine
+		  If throughLine = lastLine Then mContentHeight = y + kPadding
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub EstimateLine(lineIndex As Integer)
+		  EstimateLines(lineIndex, lineIndex)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub EstimateLines(firstLine As Integer, lastLine As Integer)
+		  // Heights for lines that are not laid out yet, from their length and block, without measuring any text
+		  #Pragma BackgroundTasks False
+		  #Pragma BoundsChecking False
+		  #Pragma NilObjectChecking False
+		  Var sizes() As Integer = mLineSizes
+		  Var kinds() As Integer = mBlockKinds
+		  Var lineTable() As Integer = mLineTable
+		  Var tableStart() As Integer = mTableStart
+		  Var heights() As Double = mLineHeights
+		  Var gaps() As Double = mLineGaps
+		  Var rowHeight As Double = mEstimateRowHeight
+		  Var headingGap As Double = mHeadingGap
+		  Var widthPerByte As Double = mEstimateCharWidth / mEstimateWidth
+		  Var renderAll As Boolean = mRenderMarkdown
+		  Var currentLine As Integer = mCurrentLine
+		  // Starting from the first line with nothing known below it, the positions come along for free
+		  Var withTops As Boolean = firstLine = 0 And mTopsValidThrough < 0 And mLineTop.Count = sizes.Count
+		  Var tops() As Double = mLineTop
+		  Var bottoms() As Double = mLineBottom
+		  Var y As Double = kPadding
+		  
+		  For lineIndex As Integer = firstLine To lastLine
+		    Var size As Integer = sizes(lineIndex)
+		    Var kind As Integer = kinds(lineIndex)
+		    Var rendered As Boolean = renderAll And lineIndex <> currentLine
+		    
+		    Var gap As Double
+		    Var table As Integer = lineTable(lineIndex)
+		    If table >= 0 Then
+		      If lineIndex = tableStart(table) And lineIndex > 0 Then gap = headingGap
+		    ElseIf lineIndex > 0 Then
+		      If lineTable(lineIndex - 1) >= 0 Then gap = headingGap
+		    End If
+		    
+		    Var h As Double = rowHeight
+		    If rendered And kind = kKindTableDelimiter Then
+		      h = 0
+		    ElseIf rendered And (kind = kKindTableHeader Or kind = kKindTableRow) Then
+		      h = rowHeight + (2 * kCellPaddingV)
+		    Else
+		      Var byteCount As Integer = size \ 8
+		      Var level As Integer = size Mod 8
+		      If rendered And kind = kKindNormal And level > 0 Then
+		        // A heading
+		        Var scale As Double = HeadingScale(level)
+		        If lineIndex > 0 Then gap = gap + headingGap
+		        h = Max(1, Ceiling(byteCount * widthPerByte * scale)) * Ceiling(rowHeight * scale)
+		      ElseIf byteCount * widthPerByte > 1 Then
+		        h = Ceiling(byteCount * widthPerByte) * rowHeight
+		      End If
+		    End If
+		    
+		    heights(lineIndex) = h
+		    gaps(lineIndex) = gap
+		    If withTops Then
+		      y = y + gap
+		      tops(lineIndex) = y
+		      y = y + h
+		      bottoms(lineIndex) = y
+		    End If
+		  Next
+		  If withTops Then
+		    mTopsValidThrough = lastLine
+		    If lastLine = mLines.LastIndex Then mContentHeight = y + kPadding
+		  End If
 		End Sub
 	#tag EndMethod
 
@@ -1769,6 +2070,13 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
+		Private Function HasBlockSyntax(line As String) As Boolean
+		  // Code fences (``` ~~~) and table pipes decide the blocks of the lines around them
+		  Return line.IndexOfBytes("`") >= 0 Or line.IndexOfBytes("~") >= 0 Or line.IndexOfBytes("|") >= 0
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
 		Private Function HeadingScale(level As Integer) As Double
 		  Select Case level
 		  Case 1
@@ -1810,7 +2118,12 @@ Inherits DesktopCanvas
 		  
 		  If mImageCache = Nil Then mImageCache = New Dictionary
 		  mImageCache.Value(ImageKey(source)) = picture
-		  mLayoutDirty = True
+		  // Lines keep their heights until they are laid out again, so the view does not jump
+		  If mPrintLayout Or mLineFirstRow.Count <> mLines.Count Then
+		    mLayoutDirty = True
+		  Else
+		    InvalidateAllLines(False)
+		  End If
 		  Refresh(False)
 		End Sub
 	#tag EndMethod
@@ -1947,65 +2260,604 @@ Inherits DesktopCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
-		Private Sub Layout()
-		  // Rebuilds rows and fragments for the whole document.
-		  // Every line except the caret line is laid out with its Markdown rendered.
-		  Var g As Graphics = MeasureGraphics
-		  mLayoutMeasuredInPaint = mPaintGraphics <> Nil
-		  mFragments.ResizeTo(-1)
-		  mRows.ResizeTo(-1)
-		  AnalyzeBlocks
-		  
+		Private Sub InvalidateAllLines(reestimate As Boolean)
+		  // Throws away the layout of every line. reestimate gives every line an estimated height;
+		  // otherwise lines keep their current heights until they are laid out again, so nothing moves.
+		  #Pragma BackgroundTasks False
+		  #Pragma BoundsChecking False
+		  #Pragma NilObjectChecking False
 		  Var lastLine As Integer = mLines.LastIndex
-		  mLineKinds.ResizeTo(lastLine)
-		  mLineFirstRow.ResizeTo(lastLine)
-		  mLineLastRow.ResizeTo(lastLine)
-		  mLineTop.ResizeTo(lastLine)
-		  mLineBottom.ResizeTo(lastLine)
-		  mLineImages.ResizeTo(lastLine)
-		  
-		  Var maxWidth As Double = Max(kMinimumContentWidth, ContentWidth)
-		  Var headingGap As Double = BaseRowHeight * 0.4
-		  Var y As Double = kPadding
-		  
-		  For i As Integer = 0 To lastLine
-		    Var flags() As Integer
-		    Var scale, indent As Double
-		    Var contentCol As Integer
-		    Var rendered As Boolean = mRenderMarkdown And i <> mCurrentLine
-		    mLineImages(i) = Nil
-		    Var kind As Integer = ParseLine(i, rendered, flags, scale, indent, contentCol)
-		    
-		    mLineKinds(i) = kind
-		    If kind = kKindHeading And i > 0 Then y = y + headingGap
-		    
-		    Var table As Integer = mLineTable(i)
-		    If table >= 0 And i = mTableStart(table) Then
-		      // Columns are measured over all rows (including the caret line) so they stay put while editing
-		      ComputeTableColumns(g, table, maxWidth)
-		      If i > 0 Then y = y + headingGap
-		    ElseIf table < 0 And i > 0 And mLineTable(i - 1) >= 0 Then
-		      y = y + headingGap
-		    End If
-		    
-		    mLineTop(i) = y
-		    If kind = kKindImage Then
-		      y = LayoutImageLine(i, maxWidth, y)
-		    ElseIf kind = kKindTableHeader Or kind = kKindTableRow Then
-		      y = LayoutTableLine(g, i, flags, y)
-		    ElseIf kind = kKindTableDelimiter Then
-		      y = LayoutCollapsedLine(i, y)
-		    Else
-		      y = LayoutLine(g, i, flags, scale, indent, contentCol, maxWidth, y)
-		      If kind <> kKindCode And kind <> kKindFence And kind <> kKindRule Then AlignRows(g, i, maxWidth)
-		    End If
-		    mLineBottom(i) = y
+		  If mLineHeights.Count <> mLines.Count Then reestimate = True
+		  mPrintLayout = False
+		  mPrintLayoutGraphics = Nil
+		  mRows.ResizeTo(-1)
+		  mFragments.ResizeTo(-1)
+		  mGarbageFragments = 0
+		  // The code blocks and tables only need to be found again when the text changed behind LinesReplaced's back
+		  If mBlocksDirty Or mBlockKinds.Count <> mLines.Count Then AnalyzeBlocks
+		  // Table columns depend on the width and the font, so they are measured again
+		  For t As Integer = 0 To mTableColumnsValid.LastIndex
+		    mTableColumnsValid(t) = False
 		  Next
 		  
-		  mContentHeight = y + kPadding
+		  mLineHeights.ResizeTo(lastLine)
+		  mLineGaps.ResizeTo(lastLine)
+		  mLineTop.ResizeTo(lastLine)
+		  mLineBottom.ResizeTo(lastLine)
+		  Var firstRows() As Integer
+		  Var lastRows() As Integer
+		  Var lineKinds() As Integer
+		  Var images() As Picture
+		  Var inPaint() As Boolean
+		  firstRows.ResizeTo(lastLine)
+		  lastRows.ResizeTo(lastLine)
+		  lineKinds.ResizeTo(lastLine)
+		  images.ResizeTo(lastLine)
+		  inPaint.ResizeTo(lastLine)
+		  Var kinds() As Integer = mBlockKinds
+		  For i As Integer = 0 To lastLine
+		    firstRows(i) = -1
+		    lastRows(i) = -1
+		    lineKinds(i) = kinds(i)
+		  Next
+		  mLineFirstRow = firstRows
+		  mLineLastRow = lastRows
+		  mLineKinds = lineKinds
+		  mLineImages = images
+		  mLineInPaint = inPaint
+		  
+		  UpdateEstimateMetrics
+		  // Estimating every line also works out every line's position in the same pass;
+		  // lines that keep their heights keep their positions too
+		  If reestimate Then
+		    mTopsValidThrough = -1
+		    EstimateLines(0, lastLine)
+		  End If
+		  EnsureTops(lastLine)
+		  mOffsetsValidThrough = -1
 		  mLayoutWidth = Width
 		  mLayoutDirty = False
-		  ClampScroll
+		  mMeasureNext = 0
+		  StartMeasuring(0)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub InvalidateLine(lineIndex As Integer)
+		  // The line is laid out again when it is needed; until then it keeps its height
+		  If lineIndex < 0 Or lineIndex > mLineFirstRow.LastIndex Then Return
+		  If mLineFirstRow(lineIndex) < 0 Then Return
+		  CountGarbage(lineIndex)
+		  mLineFirstRow(lineIndex) = -1
+		  mLineLastRow(lineIndex) = -1
+		  StartMeasuring(lineIndex)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Function LineSize(line As String) As Integer
+		  // What EstimateLines needs to know about a line's text: its length in bytes times 8,
+		  // plus its heading level (the number of leading # characters, 0 for none)
+		  Var byteCount As Integer = line.Bytes
+		  Var level As Integer
+		  If byteCount > 0 And line.AscByte = 35 Then
+		    level = 1
+		    While level < 6 And line.MiddleBytes(level, 1) = "#"
+		      level = level + 1
+		    Wend
+		  End If
+		  Return byteCount * 8 + level
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Function LineAtY(yDoc As Double) As Integer
+		  // Last line whose top is at or above yDoc, or the first line
+		  If mLineTop.Count <> mLines.Count Then EnsureLayout
+		  Var lastLine As Integer = mLines.LastIndex
+		  EnsureTops(lastLine)
+		  Var low As Integer = 0
+		  Var high As Integer = lastLine
+		  While low < high
+		    Var middle As Integer = (low + high + 1) \ 2
+		    If mLineTop(middle) <= yDoc Then
+		      low = middle
+		    Else
+		      high = middle - 1
+		    End If
+		  Wend
+		  Return low
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub LinesReplaced(first As Integer, removedCount As Integer, insertedCount As Integer, oldHadBlockSyntax As Boolean)
+		  // Keeps the per-line layout in step after lines first .. first + removedCount - 1 were replaced by
+		  // insertedCount new lines in mLines. Only the new lines are laid out again, plus lines whose block
+		  // (code block, table) changed, so typing in a long document costs about as much as in a short one.
+		  #Pragma BackgroundTasks False
+		  Var lastLine As Integer = mLines.LastIndex
+		  Var oldCount As Integer = mLines.Count - insertedCount + removedCount
+		  mOffsetsValidThrough = Min(mOffsetsValidThrough, first)
+		  // Replacing most of the document (e.g. setting a new text) is quicker done as a fresh start
+		  If mLayoutDirty Or mPrintLayout Or mLineFirstRow.Count <> oldCount Or mBlockKinds.Count <> oldCount Or insertedCount + removedCount > oldCount + 1000 Then
+		    // Everything is laid out again anyway (see EnsureLayout)
+		    mLayoutDirty = True
+		    mBlocksDirty = True
+		    Return
+		  End If
+		  
+		  // The caret line moves with the text, or goes away with the replaced lines
+		  Var delta As Integer = insertedCount - removedCount
+		  If mCurrentLine >= first + removedCount Then
+		    mCurrentLine = mCurrentLine + delta
+		  ElseIf mCurrentLine >= first Then
+		    mCurrentLine = -1
+		  End If
+		  
+		  // The replaced lines' rows and fragments are left behind until CompactLayout
+		  For i As Integer = first To first + removedCount - 1
+		    CountGarbage(i)
+		  Next
+		  
+		  // Plain text replaced by plain text inside one block leaves every block as it is,
+		  // so the code blocks and tables need not be found again
+		  Var keepBlocks As Boolean = Not oldHadBlockSyntax And removedCount > 0 And insertedCount > 0
+		  Var kind As Integer
+		  If keepBlocks Then
+		    kind = mBlockKinds(first)
+		    If kind <> kKindNormal And kind <> kKindCode Then keepBlocks = False
+		    For i As Integer = first + 1 To first + removedCount - 1
+		      If mBlockKinds(i) <> kind Then
+		        keepBlocks = False
+		        Exit For
+		      End If
+		    Next
+		  End If
+		  If keepBlocks Then
+		    For i As Integer = first To first + insertedCount - 1
+		      If HasBlockSyntax(mLines(i)) Then
+		        keepBlocks = False
+		        Exit For
+		      End If
+		    Next
+		  End If
+		  
+		  SpliceIntegers(mLineFirstRow, first, removedCount, insertedCount, -1)
+		  SpliceIntegers(mLineLastRow, first, removedCount, insertedCount, -1)
+		  SpliceIntegers(mLineKinds, first, removedCount, insertedCount, kKindNormal)
+		  SplicePictures(mLineImages, first, removedCount, insertedCount)
+		  SpliceBooleans(mLineInPaint, first, removedCount, insertedCount, False)
+		  If delta <> 0 Then
+		    // With as many lines as before, the replaced lines keep their heights as estimates
+		    SpliceDoubles(mLineHeights, first, removedCount, insertedCount, 0)
+		    SpliceDoubles(mLineGaps, first, removedCount, insertedCount, 0)
+		    SpliceDoubles(mLineTop, first, removedCount, insertedCount, 0)
+		    SpliceDoubles(mLineBottom, first, removedCount, insertedCount, 0)
+		  End If
+		  // With as many lines as before, nothing moves until a line is laid out with another height (see LayoutLineAt)
+		  If delta <> 0 Then mTopsValidThrough = Min(mTopsValidThrough, first - 1)
+		  
+		  If keepBlocks Then
+		    SpliceIntegers(mLineSizes, first, removedCount, insertedCount, 0)
+		    For i As Integer = first To first + insertedCount - 1
+		      mLineSizes(i) = LineSize(mLines(i))
+		    Next
+		    SpliceIntegers(mBlockKinds, first, removedCount, insertedCount, kind)
+		    SpliceIntegers(mLineTable, first, removedCount, insertedCount, -1)
+		    If delta <> 0 Then
+		      For t As Integer = 0 To mTableStart.LastIndex
+		        If mTableStart(t) > first Then
+		          mTableStart(t) = mTableStart(t) + delta
+		          mTableEnd(t) = mTableEnd(t) + delta
+		        End If
+		      Next
+		    End If
+		  Else
+		    // Find the blocks again and compare them with the old ones, which are lined up with the new lines
+		    SpliceIntegers(mBlockKinds, first, removedCount, insertedCount, -1)
+		    SpliceIntegers(mLineTable, first, removedCount, insertedCount, -2)
+		    Var oldKinds() As Integer = mBlockKinds
+		    Var oldLineTable() As Integer = mLineTable
+		    Var oldStart() As Integer = mTableStart
+		    Var oldEnd() As Integer = mTableEnd
+		    Var oldFirstColumn() As Integer = mTableFirstColumn
+		    Var oldColumnCount() As Integer = mTableColumnCount
+		    Var oldColumnX() As Double = mTableColumnX
+		    Var oldColumnW() As Double = mTableColumnW
+		    Var oldValid() As Boolean = mTableColumnsValid
+		    AnalyzeBlocks
+		  
+		    // A line that changed its block is laid out again, and so is the line below it,
+		    // whose gap depends on whether a table ends above it
+		    For i As Integer = 0 To lastLine
+		      If oldKinds(i) <> mBlockKinds(i) Or (oldLineTable(i) >= 0) <> (mLineTable(i) >= 0) Then
+		        InvalidateLine(i)
+		        If i < lastLine Then InvalidateLine(i + 1)
+		      End If
+		    Next
+		  
+		    // A table none of whose lines changed keeps its columns; any other table is measured again
+		    For t As Integer = 0 To mTableStart.LastIndex
+		      Var s As Integer = mTableStart(t)
+		      Var e As Integer = mTableEnd(t)
+		      Var o As Integer = oldLineTable(s)
+		      Var same As Boolean = o >= 0
+		      If same Then same = oldValid(o) And oldEnd(o) - oldStart(o) = e - s And oldColumnCount(o) = mTableColumnCount(t)
+		      If same Then
+		        For j As Integer = s To e
+		          If oldLineTable(j) <> o Or oldKinds(j) <> mBlockKinds(j) Then
+		            same = False
+		            Exit For
+		          End If
+		        Next
+		      End If
+		      If same Then
+		        For c As Integer = 0 To mTableColumnCount(t) - 1
+		          mTableColumnX(mTableFirstColumn(t) + c) = oldColumnX(oldFirstColumn(o) + c)
+		          mTableColumnW(mTableFirstColumn(t) + c) = oldColumnW(oldFirstColumn(o) + c)
+		        Next
+		        mTableColumnsValid(t) = True
+		      Else
+		        For j As Integer = s To e
+		          InvalidateLine(j)
+		        Next
+		      End If
+		    Next
+		  End If
+		  
+		  If delta <> 0 Then
+		    For i As Integer = first To first + insertedCount - 1
+		      EstimateLine(i)
+		    Next
+		  End If
+		  StartMeasuring(first)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub MeasureTimerAction(sender As Timer)
+		  // Lays out the lines that are not in view, a few milliseconds at a time, so the scroll bar and
+		  // positions further down become exact without making loading, resizing or typing wait for it.
+		  // The line at the top of the view stays where it is while the lines above it get their real heights.
+		  If mPrintWidth > 0 Or mDraggingScrollbar Or mMouseSelecting Then Return
+		  EnsureLayout
+		  CompactLayout
+		  
+		  Var lastLine As Integer = mLines.LastIndex
+		  Var anchorLine As Integer = LineAtY(mScrollY)
+		  Var anchorOffset As Double = mScrollY - mLineTop(anchorLine)
+		  Var oldContentHeight As Double = mContentHeight
+		  Var oldThumbHeight As Double = ThumbHeight
+		  
+		  Var deadline As Double = System.Microseconds + (kMeasureBudget * 1000)
+		  Var i As Integer = Max(0, mMeasureNext)
+		  While i <= lastLine
+		    If mLineFirstRow(i) < 0 Then
+		      LayoutLineAt(i)
+		      If System.Microseconds >= deadline Then
+		        i = i + 1
+		        Exit While
+		      End If
+		    End If
+		    i = i + 1
+		  Wend
+		  mMeasureNext = i
+		  If i > lastLine Then sender.RunMode = Timer.RunModes.Off
+		  
+		  EnsureTops(lastLine)
+		  Var newScroll As Double = mLineTop(anchorLine) + anchorOffset
+		  If newScroll <> mScrollY Or mContentHeight <> oldContentHeight Then
+		    Var oldScroll As Double = mScrollY
+		    mScrollY = newScroll
+		    ClampScroll
+		    // Repaint only when the text or the scroll thumb visibly moved
+		    If mScrollY <> oldScroll Or (mHasVerticalScrollbar And (Abs(ThumbHeight - oldThumbHeight) >= 0.5 Or Abs(mContentHeight - oldContentHeight) >= 1)) Then Refresh(False)
+		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub PrepareVisibleLines()
+		  // Lays out every line in view with the Graphics being painted on. Laying out can change heights
+		  // and so how far the view can scroll, so this repeats until the lines in view stay the same.
+		  Var lastLine As Integer = mLines.LastIndex
+		  For attempt As Integer = 1 To 4
+		    ClampScroll
+		    Var viewBottom As Double = mScrollY + Height
+		    Var changed As Boolean
+		    Var i As Integer = LineAtY(mScrollY)
+		    While i <= lastLine
+		      EnsureTops(i)
+		      If mLineTop(i) > viewBottom Then Exit While
+		      If mLineFirstRow(i) < 0 Or Not mLineInPaint(i) Then
+		        LayoutLineAt(i)
+		        changed = True
+		      Else
+		        EnsureLineLayout(i)
+		      End If
+		      i = i + 1
+		    Wend
+		    Var before As Double = mScrollY
+		    ClampScroll
+		    If Not changed Or mScrollY = before Then Exit For
+		  Next
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub RenumberLine(lineIndex As Integer)
+		  // Rows and fragments remember their line; lines added or removed above change that number
+		  For r As Integer = mLineFirstRow(lineIndex) To mLineLastRow(lineIndex)
+		    Var row As MDRow = mRows(r)
+		    row.Line = lineIndex
+		    mRows(r) = row
+		    For f As Integer = row.FirstFragment To row.LastFragment
+		      Var frag As MDFragment = mFragments(f)
+		      frag.Line = lineIndex
+		      mFragments(f) = frag
+		    Next
+		  Next
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub ReplaceAllLines(newLines() As String)
+		  // Replaces the document's lines. Lines the old and new text share at the start and the end
+		  // keep their layout, so e.g. Undo only lays out what it changes.
+		  #Pragma BackgroundTasks False
+		  Var oldLines() As String = mLines
+		  Var oldCount As Integer = oldLines.Count
+		  Var newCount As Integer = newLines.Count
+		  Var limit As Integer = Min(oldCount, newCount)
+		  Var prefix As Integer
+		  While prefix < limit And SameText(oldLines(prefix), newLines(prefix))
+		    prefix = prefix + 1
+		  Wend
+		  Var suffix As Integer
+		  While suffix < limit - prefix And SameText(oldLines(oldCount - 1 - suffix), newLines(newCount - 1 - suffix))
+		    suffix = suffix + 1
+		  Wend
+		  Var removedCount As Integer = oldCount - prefix - suffix
+		  Var insertedCount As Integer = newCount - prefix - suffix
+		  
+		  Var oldHadBlockSyntax As Boolean
+		  For i As Integer = prefix To prefix + removedCount - 1
+		    If HasBlockSyntax(oldLines(i)) Then
+		      oldHadBlockSyntax = True
+		      Exit For
+		    End If
+		  Next
+		  
+		  mLines = newLines
+		  If removedCount > 0 Or insertedCount > 0 Then LinesReplaced(prefix, removedCount, insertedCount, oldHadBlockSyntax)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Function RowTop(rowIndex As Integer) As Double
+		  // Top of a row in document coordinates
+		  Var lineIndex As Integer = mRows(rowIndex).Line
+		  EnsureTops(lineIndex)
+		  Return mLineTop(lineIndex) + mRows(rowIndex).Top
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Function SameText(a As String, b As String) As Boolean
+		  // Exact comparison; = ignores case
+		  Return a.Bytes = b.Bytes And a.Compare(b, ComparisonOptions.CaseSensitive) = 0
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub SpliceBooleans(values() As Boolean, at As Integer, removeCount As Integer, insertCount As Integer, fill As Boolean)
+		  // Replaces removeCount values at "at" with insertCount fill values, moving the rest only once
+		  #Pragma BackgroundTasks False
+		  #Pragma BoundsChecking False
+		  #Pragma NilObjectChecking False
+		  Var oldCount As Integer = values.Count
+		  Var delta As Integer = insertCount - removeCount
+		  If delta > 0 Then
+		    values.ResizeTo(oldCount + delta - 1)
+		    For i As Integer = oldCount - 1 DownTo at + removeCount
+		      values(i + delta) = values(i)
+		    Next
+		  ElseIf delta < 0 Then
+		    For i As Integer = at + removeCount To oldCount - 1
+		      values(i + delta) = values(i)
+		    Next
+		    values.ResizeTo(oldCount + delta - 1)
+		  End If
+		  For i As Integer = at To at + insertCount - 1
+		    values(i) = fill
+		  Next
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub SpliceDoubles(values() As Double, at As Integer, removeCount As Integer, insertCount As Integer, fill As Double)
+		  // Replaces removeCount values at "at" with insertCount fill values, moving the rest only once
+		  #Pragma BackgroundTasks False
+		  #Pragma BoundsChecking False
+		  #Pragma NilObjectChecking False
+		  Var oldCount As Integer = values.Count
+		  Var delta As Integer = insertCount - removeCount
+		  If delta > 0 Then
+		    values.ResizeTo(oldCount + delta - 1)
+		    For i As Integer = oldCount - 1 DownTo at + removeCount
+		      values(i + delta) = values(i)
+		    Next
+		  ElseIf delta < 0 Then
+		    For i As Integer = at + removeCount To oldCount - 1
+		      values(i + delta) = values(i)
+		    Next
+		    values.ResizeTo(oldCount + delta - 1)
+		  End If
+		  For i As Integer = at To at + insertCount - 1
+		    values(i) = fill
+		  Next
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub SpliceIntegers(values() As Integer, at As Integer, removeCount As Integer, insertCount As Integer, fill As Integer)
+		  // Replaces removeCount values at "at" with insertCount fill values, moving the rest only once
+		  #Pragma BackgroundTasks False
+		  #Pragma BoundsChecking False
+		  #Pragma NilObjectChecking False
+		  Var oldCount As Integer = values.Count
+		  Var delta As Integer = insertCount - removeCount
+		  If delta > 0 Then
+		    values.ResizeTo(oldCount + delta - 1)
+		    For i As Integer = oldCount - 1 DownTo at + removeCount
+		      values(i + delta) = values(i)
+		    Next
+		  ElseIf delta < 0 Then
+		    For i As Integer = at + removeCount To oldCount - 1
+		      values(i + delta) = values(i)
+		    Next
+		    values.ResizeTo(oldCount + delta - 1)
+		  End If
+		  For i As Integer = at To at + insertCount - 1
+		    values(i) = fill
+		  Next
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub SplicePictures(values() As Picture, at As Integer, removeCount As Integer, insertCount As Integer)
+		  // Replaces removeCount values at "at" with insertCount Nil values, moving the rest only once
+		  #Pragma BackgroundTasks False
+		  #Pragma BoundsChecking False
+		  #Pragma NilObjectChecking False
+		  Var oldCount As Integer = values.Count
+		  Var delta As Integer = insertCount - removeCount
+		  If delta > 0 Then
+		    values.ResizeTo(oldCount + delta - 1)
+		    For i As Integer = oldCount - 1 DownTo at + removeCount
+		      values(i + delta) = values(i)
+		    Next
+		  ElseIf delta < 0 Then
+		    For i As Integer = at + removeCount To oldCount - 1
+		      values(i + delta) = values(i)
+		    Next
+		    values.ResizeTo(oldCount + delta - 1)
+		  End If
+		  For i As Integer = at To at + insertCount - 1
+		    values(i) = Nil
+		  Next
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub SpliceStrings(values() As String, at As Integer, removeCount As Integer, insertCount As Integer)
+		  // Replaces removeCount values at "at" with insertCount empty strings, moving the rest only once
+		  #Pragma BackgroundTasks False
+		  #Pragma BoundsChecking False
+		  #Pragma NilObjectChecking False
+		  Var oldCount As Integer = values.Count
+		  Var delta As Integer = insertCount - removeCount
+		  If delta > 0 Then
+		    values.ResizeTo(oldCount + delta - 1)
+		    For i As Integer = oldCount - 1 DownTo at + removeCount
+		      values(i + delta) = values(i)
+		    Next
+		  ElseIf delta < 0 Then
+		    For i As Integer = at + removeCount To oldCount - 1
+		      values(i + delta) = values(i)
+		    Next
+		    values.ResizeTo(oldCount + delta - 1)
+		  End If
+		  For i As Integer = at To at + insertCount - 1
+		    values(i) = ""
+		  Next
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub StartMeasuring(fromLine As Integer)
+		  // Lets the background layout (see MeasureTimerAction) go over the lines from fromLine on
+		  If mMeasureTimer <> Nil And mMeasureTimer.RunMode = Timer.RunModes.Off Then
+		    mMeasureNext = fromLine
+		  Else
+		    mMeasureNext = Min(mMeasureNext, fromLine)
+		  End If
+		  If mMeasureTimer <> Nil Then mMeasureTimer.RunMode = Timer.RunModes.Multiple
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub UpdateEstimateMetrics()
+		  // Sizes used for lines that are not laid out yet, and the gap above headings and tables
+		  Var g As Graphics = MeasureGraphics
+		  ApplyFont(g, 0, 1.0)
+		  mEstimateRowHeight = Ceiling(g.TextHeight * mLineSpacing)
+		  mHeadingGap = mEstimateRowHeight * 0.4
+		  Const kSample As String = "The quick brown fox jumps over the lazy dog, then naps. "
+		  mEstimateCharWidth = Max(1.0, g.TextWidth(kSample) / kSample.Length)
+		  mEstimateWidth = Max(kMinimumContentWidth, ContentWidth)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub LayoutAllLines()
+		  // Lays out the whole document in order, so the rows can be walked from first to last (used for printing)
+		  InvalidateAllLines(False)
+		  For i As Integer = 0 To mLines.LastIndex
+		    LayoutLineAt(i)
+		  Next
+		  EnsureTops(mLines.LastIndex)
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub LayoutLineAt(lineIndex As Integer)
+		  // Lays out one line into rows and fragments, appended to mRows and mFragments.
+		  // Every line except the caret line is laid out with its Markdown rendered.
+		  // Rows are positioned relative to the line's top (mLineTop), so lines below can move without being touched.
+		  Var g As Graphics = MeasureGraphics
+		  CountGarbage(lineIndex)
+		  
+		  Var maxWidth As Double = Max(kMinimumContentWidth, ContentWidth)
+		  Var flags() As Integer
+		  Var scale, indent As Double
+		  Var contentCol As Integer
+		  Var rendered As Boolean = mRenderMarkdown And lineIndex <> mCurrentLine
+		  mLineImages(lineIndex) = Nil
+		  Var kind As Integer = ParseLine(lineIndex, rendered, flags, scale, indent, contentCol)
+		  mLineKinds(lineIndex) = kind
+		  
+		  // Extra space above headings and around tables
+		  Var gap As Double
+		  If kind = kKindHeading And lineIndex > 0 Then gap = mHeadingGap
+		  Var table As Integer = mLineTable(lineIndex)
+		  If table >= 0 And lineIndex = mTableStart(table) Then
+		    If lineIndex > 0 Then gap = gap + mHeadingGap
+		  ElseIf table < 0 And lineIndex > 0 And mLineTable(lineIndex - 1) >= 0 Then
+		    gap = gap + mHeadingGap
+		  End If
+		  
+		  Var bottom As Double
+		  If kind = kKindImage Then
+		    bottom = LayoutImageLine(lineIndex, maxWidth, 0)
+		  ElseIf kind = kKindTableHeader Or kind = kKindTableRow Then
+		    EnsureTableColumns(g, table, maxWidth)
+		    bottom = LayoutTableLine(g, lineIndex, flags, 0)
+		  ElseIf kind = kKindTableDelimiter Then
+		    bottom = LayoutCollapsedLine(lineIndex, 0)
+		  Else
+		    bottom = LayoutLine(g, lineIndex, flags, scale, indent, contentCol, maxWidth, 0)
+		    If kind <> kKindCode And kind <> kKindFence And kind <> kKindRule Then AlignRows(g, lineIndex, maxWidth)
+		  End If
+		  
+		  mLineInPaint(lineIndex) = mPaintGraphics <> Nil
+		  If gap <> mLineGaps(lineIndex) Or bottom <> mLineHeights(lineIndex) Then
+		    mLineGaps(lineIndex) = gap
+		    mLineHeights(lineIndex) = bottom
+		    // The lines below move
+		    mTopsValidThrough = Min(mTopsValidThrough, lineIndex - 1)
+		  End If
 		End Sub
 	#tag EndMethod
 
@@ -2401,15 +3253,15 @@ Inherits DesktopCanvas
 		Private Function LinkAt(x As Integer, y As Integer) As String
 		  // URL of the link under the given point, or "" when there is none
 		  EnsureLayout
-		  If mRows.Count = 0 Then Return ""
 		  
 		  Var yDoc As Double = y + mScrollY
 		  Var r As Integer = RowAtY(yDoc)
 		  Var row As MDRow = mRows(r)
-		  If yDoc < row.Top Or yDoc >= row.Top + row.Height Then Return ""
+		  Var rowTop As Double = mLineTop(row.Line) + row.Top
+		  If yDoc < rowTop Or yDoc >= rowTop + row.Height Then Return ""
 		  
 		  Var xContent As Double = x - kPadding
-		  Var yInRow As Double = yDoc - row.Top
+		  Var yInRow As Double = yDoc - rowTop
 		  Var isTable As Boolean = IsTableKind(mLineKinds(row.Line))
 		  For f As Integer = row.FirstFragment To row.LastFragment
 		    Var frag As MDFragment = mFragments(f)
@@ -2584,13 +3436,41 @@ Inherits DesktopCanvas
 		  If mDesiredX < 0 Then mDesiredX = XForCol(r, mCaretCol)
 		  Var desired As Double = mDesiredX
 		  
-		  Var target As Integer = r + rowDelta
-		  If target < 0 Then
+		  // Walk row by row; lines on the way are laid out when they are reached
+		  Var lineIndex As Integer = mCaretLine
+		  Var pastEdge As Integer
+		  For stepIndex As Integer = 1 To Abs(rowDelta)
+		    If rowDelta > 0 Then
+		      If r < mLineLastRow(lineIndex) Then
+		        r = r + 1
+		      ElseIf lineIndex < mLines.LastIndex Then
+		        lineIndex = lineIndex + 1
+		        EnsureLineLayout(lineIndex)
+		        r = mLineFirstRow(lineIndex)
+		      Else
+		        pastEdge = 1
+		        Exit For
+		      End If
+		    Else
+		      If r > mLineFirstRow(lineIndex) Then
+		        r = r - 1
+		      ElseIf lineIndex > 0 Then
+		        lineIndex = lineIndex - 1
+		        EnsureLineLayout(lineIndex)
+		        r = mLineLastRow(lineIndex)
+		      Else
+		        pastEdge = -1
+		        Exit For
+		      End If
+		    End If
+		  Next
+		  
+		  If pastEdge < 0 Then
 		    MoveCaret(0, 0, extend)
-		  ElseIf target > mRows.LastIndex Then
+		  ElseIf pastEdge > 0 Then
 		    MoveCaret(mLines.LastIndex, mLines(mLines.LastIndex).Length, extend)
 		  Else
-		    MoveCaret(mRows(target).Line, ColForX(target, desired), extend)
+		    MoveCaret(lineIndex, ColForX(r, desired), extend)
 		  End If
 		  mDesiredX = desired
 		End Sub
@@ -2624,11 +3504,9 @@ Inherits DesktopCanvas
 	#tag Method, Flags = &h21
 		Private Function OffsetOf(lineIndex As Integer, col As Integer) As Integer
 		  // Character offset as used by SelectionStart: every line break counts as one character
-		  Var offset As Integer
-		  For i As Integer = 0 To lineIndex - 1
-		    offset = offset + mLines(i).Length + 1
-		  Next
-		  Return offset + col
+		  lineIndex = Max(0, Min(lineIndex, mLines.LastIndex))
+		  EnsureOffsets(lineIndex)
+		  Return mLineOffsets(lineIndex) + col
 		End Function
 	#tag EndMethod
 
@@ -2844,18 +3722,20 @@ Inherits DesktopCanvas
 		Private Sub PositionFromPoint(x As Double, y As Double, ByRef lineIndex As Integer, ByRef col As Integer)
 		  EnsureLayout
 		  Var yDoc As Double = y + mScrollY
-		  Var lastRow As MDRow = mRows(mRows.LastIndex)
+		  Var lastLine As Integer = mLines.LastIndex
+		  EnsureLineLayout(lastLine)
+		  EnsureTops(lastLine)
 		  
 		  // Below the text: end of the document
-		  If yDoc >= lastRow.Top + lastRow.Height Then
-		    lineIndex = mLines.LastIndex
+		  If yDoc >= mLineBottom(lastLine) Then
+		    lineIndex = lastLine
 		    col = mLines(lineIndex).Length
 		    Return
 		  End If
 		  
 		  Var r As Integer = RowAtY(yDoc)
 		  lineIndex = mRows(r).Line
-		  col = ColForX(r, x - kPadding, yDoc - mRows(r).Top)
+		  col = ColForX(r, x - kPadding, yDoc - (mLineTop(lineIndex) + mRows(r).Top))
 		End Sub
 	#tag EndMethod
 
@@ -2870,16 +3750,22 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Sub PositionOfOffset(offset As Integer, ByRef lineIndex As Integer, ByRef col As Integer)
-		  Var remaining As Integer = Max(0, offset)
-		  For i As Integer = 0 To mLines.LastIndex
-		    Var length As Integer = mLines(i).Length
-		    If remaining <= length Or i = mLines.LastIndex Then
-		      lineIndex = i
-		      col = Min(remaining, length)
-		      Return
+		  // The last line starting at or before offset
+		  offset = Max(0, offset)
+		  Var lastLine As Integer = mLines.LastIndex
+		  EnsureOffsets(lastLine)
+		  Var low As Integer = 0
+		  Var high As Integer = lastLine
+		  While low < high
+		    Var middle As Integer = (low + high + 1) \ 2
+		    If mLineOffsets(middle) <= offset Then
+		      low = middle
+		    Else
+		      high = middle - 1
 		    End If
-		    remaining = remaining - length - 1
-		  Next
+		  Wend
+		  lineIndex = low
+		  col = Min(offset - mLineOffsets(low), mLines(low).Length)
 		End Sub
 	#tag EndMethod
 
@@ -2909,10 +3795,18 @@ Inherits DesktopCanvas
 		Attributes( Hidden )  Function PrintBlock(g As Graphics, width As Double, firstRow As Integer, x As Double, y As Double, height As Double) As Integer
 		  // Lays the whole document out for the printer, draws the rows from firstRow on that fit into
 		  // height at x, y and returns the first row of the next block, or -1 when nothing is left.
+		  // The layout is kept for the following pages, until the editor needs its own layout again (see EnsureLayout).
 		  Var savedGraphics As Graphics = mPaintGraphics
 		  Var savedScroll As Double = mScrollY
 		  Var savedLine As Integer = mCurrentLine
 		  Var nextRow As Integer = -1
+		  
+		  If Not mPrintLayout Then
+		    // Remember the line at the top of the view, so the editor shows it again after printing
+		    EnsureLayout
+		    mPrintAnchorLine = LineAtY(mScrollY)
+		    mPrintAnchorOffset = mScrollY - mLineTop(mPrintAnchorLine)
+		  End If
 		  
 		  Try
 		    mPaintGraphics = g
@@ -2920,18 +3814,24 @@ Inherits DesktopCanvas
 		    mPrintHeight = Max(1, height)
 		    // There is no caret on paper, so every line is printed rendered
 		    mCurrentLine = -1
-		    Layout
-		    
+		    If Not mPrintLayout Or mLayoutDirty Or mPrintLayoutGraphics <> g Or mPrintLayoutWidth <> mPrintWidth Or mPrintLayoutHeight <> mPrintHeight Then
+		      LayoutAllLines
+		      mPrintLayout = True
+		      mPrintLayoutGraphics = g
+		      mPrintLayoutWidth = mPrintWidth
+		      mPrintLayoutHeight = mPrintHeight
+		    End If
+		  
 		    If firstRow >= 0 And firstRow <= mRows.LastIndex Then
 		      // Whole rows only: the block ends before the first row that does not fit
-		      Var blockTop As Double = mRows(firstRow).Top
+		      Var blockTop As Double = RowTop(firstRow)
 		      Var lastRow As Integer = firstRow
 		      While lastRow < mRows.LastIndex
 		        Var candidate As MDRow = mRows(lastRow + 1)
-		        If candidate.Top + candidate.Height - blockTop > height Then Exit While
+		        If RowTop(lastRow + 1) + candidate.Height - blockTop > height Then Exit While
 		        lastRow = lastRow + 1
 		      Wend
-		      Var blockHeight As Double = mRows(lastRow).Top + mRows(lastRow).Height - blockTop
+		      Var blockHeight As Double = RowTop(lastRow) + mRows(lastRow).Height - blockTop
 		      
 		      // Code backgrounds and table borders of lines that go on over the page break are cut off here
 		      Var pg As Graphics = g.Clip(x, y, mPrintWidth, Max(1, blockHeight))
@@ -2940,27 +3840,27 @@ Inherits DesktopCanvas
 		      Next
 		      For r As Integer = firstRow To lastRow
 		        Var row As MDRow = mRows(r)
+		        Var rowTop As Double = RowTop(r) - blockTop
 		        For f As Integer = row.FirstFragment To row.LastFragment
 		          Var frag As MDFragment = mFragments(f)
 		          If (frag.Flags And kFlagImage) <> 0 Then
-		            DrawImage(pg, frag, row, 0, row.Top - blockTop, False)
+		            DrawImage(pg, frag, row, 0, rowTop, False)
 		          ElseIf (frag.Flags And kFlagHidden) = 0 Then
-		            DrawFragment(pg, frag, row, 0, row.Top - blockTop)
+		            DrawFragment(pg, frag, row, 0, rowTop)
 		          End If
 		        Next
 		      Next
-		      
+		  
 		      nextRow = lastRow + 1
 		      If nextRow > mRows.LastIndex Or RowsAreBlank(nextRow) Then nextRow = -1
 		    End If
 		  Finally
-		    // Back to the editor's own layout and colors
+		    // Back to the editor's colors; its layout is made again when it is needed
 		    mPrintWidth = 0
 		    mPrintHeight = 0
 		    mCurrentLine = savedLine
 		    mPaintGraphics = savedGraphics
 		    mScrollY = savedScroll
-		    Layout
 		    Refresh(False)
 		  End Try
 		  
@@ -3026,34 +3926,38 @@ Inherits DesktopCanvas
 		  
 		  RecordUndo(editKind)
 		  
-		  Var before As String = mLines(sl).Left(sc)
-		  Var after As String = mLines(el).Middle(ec)
-		  For i As Integer = el DownTo sl + 1
-		    mLines.RemoveAt(i)
+		  // Whether the replaced lines held code fences or table pipes, which shape the blocks around them
+		  Var oldHadBlockSyntax As Boolean
+		  For i As Integer = sl To el
+		    If HasBlockSyntax(mLines(i)) Then
+		      oldHadBlockSyntax = True
+		      Exit For
+		    End If
 		  Next
 		  
+		  Var before As String = mLines(sl).Left(sc)
+		  Var after As String = mLines(el).Middle(ec)
 		  Var parts() As String = NormalizedText(value).Split(Chr(10))
 		  If parts.Count = 0 Then parts.Add("")
 		  
+		  // Lines sl .. el are replaced by the parts in one go, however many lines that are
+		  SpliceStrings(mLines, sl, el - sl + 1, parts.Count)
+		  For k As Integer = 0 To parts.LastIndex
+		    mLines(sl + k) = parts(k)
+		  Next
+		  mLines(sl) = before + mLines(sl)
+		  mLines(sl + parts.LastIndex) = mLines(sl + parts.LastIndex) + after
 		  If parts.Count = 1 Then
-		    mLines(sl) = before + parts(0) + after
 		    mCaretLine = sl
 		    mCaretCol = sc + parts(0).Length
 		  Else
-		    mLines(sl) = before + parts(0)
-		    For k As Integer = 1 To parts.LastIndex
-		      If k = parts.LastIndex Then
-		        mLines.AddAt(sl + k, parts(k) + after)
-		      Else
-		        mLines.AddAt(sl + k, parts(k))
-		      End If
-		    Next
 		    mCaretLine = sl + parts.LastIndex
 		    mCaretCol = parts(parts.LastIndex).Length
 		  End If
 		  
 		  mAnchorLine = mCaretLine
 		  mAnchorCol = mCaretCol
+		  LinesReplaced(sl, el - sl + 1, parts.Count, oldHadBlockSyntax)
 		  TextDidChange
 		End Sub
 	#tag EndMethod
@@ -3095,8 +3999,9 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Sub RestoreState(value As String, offset As Integer)
-		  mLines = value.Split(Chr(10))
-		  If mLines.Count = 0 Then mLines.Add("")
+		  Var newLines() As String = value.Split(Chr(10))
+		  If newLines.Count = 0 Then newLines.Add("")
+		  ReplaceAllLines(newLines)
 		  Var lineIndex, col As Integer
 		  PositionOfOffset(offset, lineIndex, col)
 		  mCaretLine = lineIndex
@@ -3110,25 +4015,23 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Function RowAtY(yDoc As Double) As Integer
-		  // Last row whose top is at or above yDoc
-		  If mRows.Count = 0 Then Return -1
-		  Var low As Integer = 0
-		  Var high As Integer = mRows.LastIndex
-		  While low < high
-		    Var middle As Integer = (low + high + 1) \ 2
-		    If mRows(middle).Top <= yDoc Then
-		      low = middle
-		    Else
-		      high = middle - 1
-		    End If
+		  // Last row whose top is at or above yDoc; its line is laid out if it was not yet
+		  Var lineIndex As Integer = LineAtY(yDoc)
+		  EnsureLineLayout(lineIndex)
+		  EnsureTops(lineIndex)
+		  Var top As Double = mLineTop(lineIndex)
+		  Var r As Integer = mLineFirstRow(lineIndex)
+		  While r < mLineLastRow(lineIndex) And top + mRows(r + 1).Top <= yDoc
+		    r = r + 1
 		  Wend
-		  Return low
+		  Return r
 		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
 		Private Function RowForPosition(lineIndex As Integer, col As Integer) As Integer
 		  // A column on a wrap boundary belongs to the next row
+		  EnsureLineLayout(lineIndex)
 		  Var lastRow As Integer = mLineLastRow(lineIndex)
 		  For r As Integer = mLineFirstRow(lineIndex) To lastRow
 		    If col < mRows(r).EndCol Or r = lastRow Then Return r
@@ -3229,8 +4132,9 @@ Inherits DesktopCanvas
 	#tag Method, Flags = &h21
 		Private Sub SetContent(value As String)
 		  // Replaces the whole document; Text and Markdown differ only in how they show it
-		  mLines = NormalizedText(value).Split(Chr(10))
-		  If mLines.Count = 0 Then mLines.Add("")
+		  Var newLines() As String = NormalizedText(value).Split(Chr(10))
+		  If newLines.Count = 0 Then newLines.Add("")
+		  ReplaceAllLines(newLines)
 		  mCaretLine = 0
 		  mCaretCol = 0
 		  mAnchorLine = 0
@@ -3456,7 +4360,7 @@ Inherits DesktopCanvas
 
 	#tag Method, Flags = &h21
 		Private Sub TextDidChange()
-		  mLayoutDirty = True
+		  // The changed lines were already marked for a new layout (see LinesReplaced)
 		  mDesiredX = -1
 		  CaretMoved
 		  RaiseEvent TextChanged
@@ -3702,8 +4606,13 @@ Inherits DesktopCanvas
 		    If mCaretCol = 0 And mCaretLine > mAnchorLine Then newLine = mCaretLine - 1
 		  End If
 		  If newLine <> mCurrentLine Then
+		    // Only the line that becomes raw and the one that is rendered again are laid out anew
+		    Var previousLine As Integer = mCurrentLine
 		    mCurrentLine = newLine
-		    mLayoutDirty = True
+		    If mRenderMarkdown Then
+		      InvalidateLine(previousLine)
+		      InvalidateLine(newLine)
+		    End If
 		  End If
 		End Sub
 	#tag EndMethod
@@ -4451,7 +5360,91 @@ Inherits DesktopCanvas
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
-		Private mLayoutMeasuredInPaint As Boolean
+		Private mEstimateCharWidth As Double = 7
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mEstimateRowHeight As Double = 17
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mEstimateWidth As Double = 400
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mBlocksDirty As Boolean = True
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mGarbageFragments As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mHeadingGap As Double
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mLineGaps() As Double
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mLineHeights() As Double
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mLineInPaint() As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mLineOffsets() As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mLineSizes() As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mMeasureNext As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mMeasureTimer As Timer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mOffsetsValidThrough As Integer = -1
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mPrintAnchorLine As Integer = -1
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mPrintAnchorOffset As Double
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mPrintLayout As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mPrintLayoutGraphics As Graphics
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mPrintLayoutHeight As Double
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mPrintLayoutWidth As Double
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mTableColumnsValid() As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mTopsValidThrough As Integer = -1
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
@@ -5189,6 +6182,9 @@ Inherits DesktopCanvas
 	#tag Constant, Name = kCodeInset, Type = Double, Dynamic = False, Default = \"8", Scope = Private
 	#tag EndConstant
 
+	#tag Constant, Name = kCompactThreshold, Type = Double, Dynamic = False, Default = \"20000", Scope = Private
+	#tag EndConstant
+
 	#tag Constant, Name = kCursorArrow, Type = Double, Dynamic = False, Default = \"2", Scope = Private
 	#tag EndConstant
 
@@ -5383,6 +6379,12 @@ Inherits DesktopCanvas
 	#tag EndConstant
 
 	#tag Constant, Name = kMaxUndo, Type = Double, Dynamic = False, Default = \"200", Scope = Private
+	#tag EndConstant
+
+	#tag Constant, Name = kMeasureBudget, Type = Double, Dynamic = False, Default = \"8", Scope = Private
+	#tag EndConstant
+
+	#tag Constant, Name = kMeasurePeriod, Type = Double, Dynamic = False, Default = \"15", Scope = Private
 	#tag EndConstant
 
 	#tag Constant, Name = kMenuTagCopy, Type = String, Dynamic = False, Default = \"MarkdownArea.Copy", Scope = Private

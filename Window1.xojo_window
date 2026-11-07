@@ -2160,13 +2160,27 @@ End
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
-		Private Sub UpdateStatus()
-		  // A status line under the Playground editor
+		Private Sub CountText()
+		  // Counting the words of a long text takes a moment, so it is done once typing pauses (see the Editor's TextChanged)
 		  Var value As String = Editor.Text
 		  Var words As Integer
 		  For Each word As String In value.ReplaceLineEndings(" ").Split(" ")
 		    If word.Trim <> "" Then words = words + 1
 		  Next
+		  mWordCount = words
+		  mCharacterCount = value.Length
+		  UpdateStatus
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Sub UpdateStatus()
+		  // A status line under the Playground editor
+		  If mWordCount < 0 Then
+		    CountText
+		    Return
+		  End If
+		  Var words As Integer = mWordCount
 
 		  Var parts() As String
 		  If Editor.RenderMarkdown Then
@@ -2176,7 +2190,7 @@ End
 		  End If
 		  If Editor.ReadOnly Then parts.Add("🔒 Read-only")
 		  parts.Add(words.ToString + " words")
-		  parts.Add(value.Length.ToString + " characters")
+		  parts.Add(mCharacterCount.ToString + " characters")
 		  Var lineNumber As Integer = Editor.LineNumber(Editor.SelectionStart) + 1
 		  parts.Add("Line " + lineNumber.ToString)
 		  If Editor.SelectionLength > 0 Then parts.Add(Editor.SelectionLength.ToString + " selected")
@@ -2187,6 +2201,14 @@ End
 
 	#tag Property, Flags = &h21, Description = 54727565207768696C652074686520636F6E74726F6C73206172652066696C6C656420696E20636F64652C20736F207468656972206576656E747320646F206E6F74206368616E67652074686520656469746F722E
 		Private mUpdating As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mCharacterCount As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mWordCount As Integer = -1
 	#tag EndProperty
 
 
@@ -2202,6 +2224,9 @@ End
 	#tag EndEvent
 	#tag Event
 		Sub TextChanged()
+		  // The counts follow shortly after typing pauses; the rest of the status line updates right away
+		  Timer.CancelCallLater(AddressOf CountText)
+		  Timer.CallLater(300, AddressOf CountText)
 		  UpdateStatus
 		End Sub
 	#tag EndEvent
