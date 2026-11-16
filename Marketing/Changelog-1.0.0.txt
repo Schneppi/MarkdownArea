@@ -1,0 +1,11 @@
+Welcome to the first release of MarkdownArea!
+
+• Write Markdown and see it formatted as you type. Only the line you are editing shows its raw Markdown.
+• Headings, bold, italic, strikethrough, code, links, images, tables, lists, task lists with checkboxes, quotes, dividers and code blocks.
+• A formatting toolbar appears when you move the mouse near the top edge.
+• Switch between the formatted view and plain text at any time.
+• Read-only mode with a gray background, for showing documents that should not be edited.
+• Print your formatted documents.
+• Full undo and redo, cut, copy and paste, and keyboard shortcuts for bold, italic and links.
+• Works in light and dark mode and looks sharp on Retina and high-resolution screens.
+• Smooth scrolling that stays fast even with long documents.
